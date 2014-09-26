@@ -1,5 +1,5 @@
 .. raw:: html
-    
+
     <br>
 
 
@@ -21,6 +21,5 @@ Table of Contents
     macos_specifics
     additional_python_libraries
     git
-    eclipse
-    eclipse_troubleshooting
-    eclipse_waf
+    spyder
+    spyder_waf
