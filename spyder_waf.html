@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Troubleshooting in Eclipse &mdash; Guide for Setting up a Python Environment for Economic Research</title>
+    <title>Using Spyder with Waf &mdash; Guide for Setting up a Python Environment for Economic Research</title>
     
     <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -25,8 +25,7 @@
     <script type="text/javascript" src="_static/doctools.js"></script>
     <script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
     <link rel="top" title="Guide for Setting up a Python Environment for Economic Research" href="index.html" />
-    <link rel="next" title="Setting up Eclipse to debug your Waf files" href="eclipse_waf.html" />
-    <link rel="prev" title="Eclipse" href="eclipse.html" />
+    <link rel="prev" title="Git" href="git.html" />
 
 <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
 <link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
@@ -52,11 +51,8 @@
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
-          <a href="eclipse_waf.html" title="Setting up Eclipse to debug your Waf files"
-             accesskey="N">next</a></li>
-        <li class="right" >
-          <a href="eclipse.html" title="Eclipse"
-             accesskey="P">previous</a> |</li>
+          <a href="git.html" title="Git"
+             accesskey="P">previous</a></li>
         <li><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &raquo;</li> 
       </ul>
     </div>  
@@ -66,15 +62,26 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="troubleshooting-in-eclipse">
-<h1>Troubleshooting in Eclipse<a class="headerlink" href="#troubleshooting-in-eclipse" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="pydev-perspective-not-shown">
-<h2>PyDev perspective not shown<a class="headerlink" href="#pydev-perspective-not-shown" title="Permalink to this headline">¶</a></h2>
-<p>Eclipse knows about various screen setups depending what you are doing at the moment. When you are writing Python code you want to see different information than when you are debugging it, etc. You can change manually between perspectives at the top right corner, and sometimes the PyDev perspective is not shown automatically, like here:</p>
-<a class="reference internal image-reference" href="_images/no_pydev_perspective1.png"><img alt="_images/no_pydev_perspective1.png" src="_images/no_pydev_perspective1.png" style="width: 12cm;" /></a>
-<p>Click on the icon on the far left and select <cite>Other...</cite>:</p>
-<a class="reference internal image-reference" href="_images/no_pydev_perspective2.png"><img alt="_images/no_pydev_perspective2.png" src="_images/no_pydev_perspective2.png" style="width: 12cm;" /></a>
-<p>Now select PyDev and click OK.</p>
+  <div class="section" id="using-spyder-with-waf">
+<span id="spyder-waf"></span><h1>Using Spyder with Waf<a class="headerlink" href="#using-spyder-with-waf" title="Permalink to this headline">¶</a></h1>
+<p>Spyder is a useful IDE for developing scientific Python code &#8211; it has been specifically developed for this purpose and has first-class support for data structures like NumPy arrays and pandas dataframes.</p>
+<p>In the context of the <a class="reference external" href="http://hmgaudecker.github.io/econ-project-templates/">Economics Project Templates</a>, there are just two issues to consider that are described below.</p>
+<div class="section" id="debugging-wscript-files">
+<h2>Debugging wscript files<a class="headerlink" href="#debugging-wscript-files" title="Permalink to this headline">¶</a></h2>
+<p>Sometimes it is helpful to debug your build code directly. As the wscript files are just pure Python code Spyder can handle them in principle. The tricky bit is to make Spyder recognise the them as Python scripts &#8211; usually it just uses the extension <tt class="docutils literal"><span class="pre">.py</span></tt> to infer that fact. As you cannot simply add this extension to wscript files, you must tell Spyder inside the wscript file using a so-called &#8220;shebang&#8221;. Simply add the following line as the first thing to all your wscripts:</p>
+<div class="highlight-python"><div class="highlight"><pre><span class="c">#! python</span>
+</pre></div>
+</div>
+<p>You can then set breakpoints inside your wscript files and debug them by running waf.py from inside spyder (just make sure you ran <tt class="docutils literal"><span class="pre">python</span> <span class="pre">waf.py</span> <span class="pre">configure</span></tt> beforehand).</p>
+</div>
+<div class="section" id="setting-the-pythonpath">
+<h2>Setting the PYTHONPATH<a class="headerlink" href="#setting-the-pythonpath" title="Permalink to this headline">¶</a></h2>
+<p>The machinery of the <a class="reference external" href="http://hmgaudecker.github.io/econ-project-templates/">Economics Project Templates</a> requires the PYTHONPATH environmental variable to the project root.</p>
+<p>In order to do so, first create a Spyder project in the directory where you want your research to be (click &#8220;Yes&#8221; on the question &#8220;The following directory is not empty: ... Do you want to continue?&#8221;). Then right-click on the project&#8217;s root folder and select &#8220;Add to PYTHONPATH&#8221;.</p>
+<blockquote>
+<div><a class="reference internal image-reference" href="_images/spyder_pythonpath.png"><img alt="_images/spyder_pythonpath.png" src="_images/spyder_pythonpath.png" style="width: 12cm;" /></a>
+</div></blockquote>
+<p>Any <tt class="docutils literal"><span class="pre">ImportErrors</span></tt> are likely due to this not being done correctly.</p>
 </div>
 </div>
 
@@ -86,18 +93,16 @@
         <div class="sphinxsidebarwrapper">
   <h3><a href="index.html">Table Of Contents</a></h3>
   <ul>
-<li><a class="reference internal" href="#">Troubleshooting in Eclipse</a><ul>
-<li><a class="reference internal" href="#pydev-perspective-not-shown">PyDev perspective not shown</a></li>
+<li><a class="reference internal" href="#">Using Spyder with Waf</a><ul>
+<li><a class="reference internal" href="#debugging-wscript-files">Debugging wscript files</a></li>
+<li><a class="reference internal" href="#setting-the-pythonpath">Setting the PYTHONPATH</a></li>
 </ul>
 </li>
 </ul>
 
   <h4>Previous topic</h4>
-  <p class="topless"><a href="eclipse.html"
-                        title="previous chapter">Eclipse</a></p>
-  <h4>Next topic</h4>
-  <p class="topless"><a href="eclipse_waf.html"
-                        title="next chapter">Setting up Eclipse to debug your Waf files</a></p>
+  <p class="topless"><a href="git.html"
+                        title="previous chapter">Git</a></p>
 <div id="searchbox" style="display: none">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
@@ -119,18 +124,15 @@
       <h3>Navigation</h3>
       <ul>
         <li class="right" style="margin-right: 10px">
-          <a href="eclipse_waf.html" title="Setting up Eclipse to debug your Waf files"
-             >next</a></li>
-        <li class="right" >
-          <a href="eclipse.html" title="Eclipse"
-             >previous</a> |</li>
+          <a href="git.html" title="Git"
+             >previous</a></li>
         <li><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &raquo;</li> 
       </ul>
     </div>
 
     <div class="footer">
         &copy; Copyright 2010-2014, Hans-Martin von Gaudecker.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.2.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
