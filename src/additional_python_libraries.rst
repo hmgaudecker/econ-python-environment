@@ -5,8 +5,7 @@ Additional Python libraries
 
 Now we can easily install more libraries. Type::
 
-    conda install statsmodels
-    pip install coverage
+    conda install coverage
     pip install sphinxcontrib-bibtex
 
 .. note::
