@@ -93,6 +93,13 @@
 </div>
 <p>Press <tt class="docutils literal"><span class="pre">Return</span></tt> and then <tt class="docutils literal"><span class="pre">ctrl+o</span></tt> (= WriteOut = save) and <tt class="docutils literal"><span class="pre">Return</span></tt> once more.</p>
 </li>
+<li><p class="first">Your default locale settings may conflict with some of the programs we&#8217;ll need. If you want to be on the safe side, add these lines to your <tt class="docutils literal"><span class="pre">.bash_profile</span></tt> file:</p>
+<div class="highlight-python"><div class="highlight"><pre>export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+</pre></div>
+</div>
+<p>(Hat tip to Matthias Bannert)</p>
+</li>
 <li><p class="first">Now press <tt class="docutils literal"><span class="pre">Command+n</span></tt> in order to open a new Terminal window and type <tt class="docutils literal"><span class="pre">ipython</span></tt>. You should see something like:</p>
 <div class="highlight-python"><div class="highlight"><pre>xxx@xxx-desktop:~/econ$ ipython
 Python 3.4.1 |Anaconda 2.0.0 (x86_64)| (default, May 19 2014, 13:05:46)

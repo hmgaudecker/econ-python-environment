@@ -36,12 +36,20 @@ I will now provide a step-by-step guide of how to create / adjust this file usin
 
    If ``.bash_profile`` already existed, you will see some text at this point. If so, use the arrow keys to scroll all the way to the bottom of the file. 
 
+
 #. Paste the following line at the end of the file::
 
         export PATH="${HOME}/anaconda/bin:${PATH}"
 
    Press ``Return`` and then ``ctrl+o`` (= WriteOut = save) and ``Return`` once more.
 
+
+#. Your default locale settings may conflict with some of the programs we'll need. If you want to be on the safe side, add these lines to your ``.bash_profile`` file::
+   
+        export LC_ALL=en_US.UTF-8
+        export LANG=en_US.UTF-8
+   
+   (Hat tip to Matthias Bannert)
 
 #. Now press ``Command+n`` in order to open a new Terminal window and type ``ipython``. You should see something like::
 
