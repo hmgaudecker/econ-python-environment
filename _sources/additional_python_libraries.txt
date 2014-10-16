@@ -3,7 +3,11 @@
 Additional Python libraries
 =============================
 
-Now we can easily install more libraries. Type::
+In order to obtain a recent development version of `statsmodels <http://statsmodels.sourceforge.net/>`_, type::
+
+    conda update -c https://conda.binstar.org/statsmodels statsmodels
+
+We also need to install a couple of more libraries. Type::
 
     conda install coverage
     pip install sphinxcontrib-bibtex
