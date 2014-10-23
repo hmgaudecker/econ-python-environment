@@ -7,6 +7,12 @@ In order to obtain a recent development version of `statsmodels <http://statsmod
 
     conda update -c https://conda.binstar.org/statsmodels statsmodels
 
+If you need the bootstrap for your standard errors or you are going to estimate ARCH models, I recommend `Kevin Sheppard <http://www.kevinsheppard.com>`_'s `arch <https://github.com/bashtage/arch>`_ package::
+
+    conda install -c https://conda.binstar.org/bashtage arch
+
+Note that the bootstrap implementation is by no means specific to ARCH models. For completenes, here are links to `documentation <http://arch.readthedocs.org/en/latest/bootstrap/background.html>`_ and `examples <http://nbviewer.ipython.org/github/bashtage/arch/blob/master/examples/bootstrap_examples.ipynb>`_.
+
 We also need to install a couple of more libraries. Type::
 
     conda install coverage
