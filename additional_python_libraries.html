@@ -72,6 +72,11 @@
 <div class="highlight-python"><div class="highlight"><pre>conda update -c https://conda.binstar.org/statsmodels statsmodels
 </pre></div>
 </div>
+<p>If you need the bootstrap for your standard errors or you are going to estimate ARCH models, I recommend <a class="reference external" href="http://www.kevinsheppard.com">Kevin Sheppard</a>&#8216;s <a class="reference external" href="https://github.com/bashtage/arch">arch</a> package:</p>
+<div class="highlight-python"><div class="highlight"><pre>conda install -c https://conda.binstar.org/bashtage arch
+</pre></div>
+</div>
+<p>Note that the bootstrap implementation is by no means specific to ARCH models. For completenes, here are links to <a class="reference external" href="http://arch.readthedocs.org/en/latest/bootstrap/background.html">documentation</a> and <a class="reference external" href="http://nbviewer.ipython.org/github/bashtage/arch/blob/master/examples/bootstrap_examples.ipynb">examples</a>.</p>
 <p>We also need to install a couple of more libraries. Type:</p>
 <div class="highlight-python"><div class="highlight"><pre>conda install coverage
 pip install sphinxcontrib-bibtex
