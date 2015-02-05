@@ -21,3 +21,4 @@ Table of Contents
     macos_specifics
     additional_python_libraries
     git
+    editors

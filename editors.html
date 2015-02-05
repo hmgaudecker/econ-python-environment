@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Using Spyder with Waf &mdash; Guide for Setting up a Python Environment for Economic Research</title>
+    <title>Editors &mdash; Guide for Setting up a Python Environment for Economic Research</title>
     
     <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -62,27 +62,11 @@
         <div class="bodywrapper">
           <div class="body">
             
-  <div class="section" id="using-spyder-with-waf">
-<span id="spyder-waf"></span><h1>Using Spyder with Waf<a class="headerlink" href="#using-spyder-with-waf" title="Permalink to this headline">¶</a></h1>
-<p>Spyder is a useful IDE for developing scientific Python code &#8211; it has been specifically developed for this purpose and has first-class support for data structures like NumPy arrays and pandas dataframes.</p>
-<p>In the context of the <a class="reference external" href="http://hmgaudecker.github.io/econ-project-templates/">Economics Project Templates</a>, there are just two issues to consider that are described below.</p>
-<div class="section" id="debugging-wscript-files">
-<h2>Debugging wscript files<a class="headerlink" href="#debugging-wscript-files" title="Permalink to this headline">¶</a></h2>
-<p>Sometimes it is helpful to debug your build code directly. As the wscript files are just pure Python code Spyder can handle them in principle. The tricky bit is to make Spyder recognise the them as Python scripts &#8211; usually it just uses the extension <tt class="docutils literal"><span class="pre">.py</span></tt> to infer that fact. As you cannot simply add this extension to wscript files, you must tell Spyder inside the wscript file using a so-called &#8220;shebang&#8221;. Simply add the following line as the first thing to all your wscripts:</p>
-<div class="highlight-python"><div class="highlight"><pre><span class="c">#! python</span>
-</pre></div>
-</div>
-<p>You can then set breakpoints inside your wscript files and debug them by running waf.py from inside spyder (just make sure you ran <tt class="docutils literal"><span class="pre">python</span> <span class="pre">waf.py</span> <span class="pre">configure</span></tt> beforehand).</p>
-</div>
-<div class="section" id="setting-the-pythonpath">
-<h2>Setting the PYTHONPATH<a class="headerlink" href="#setting-the-pythonpath" title="Permalink to this headline">¶</a></h2>
-<p>The machinery of the <a class="reference external" href="http://hmgaudecker.github.io/econ-project-templates/">Economics Project Templates</a> requires the PYTHONPATH environmental variable to the project root.</p>
-<p>In order to do so, first create a Spyder project in the directory where you want your research to be (click &#8220;Yes&#8221; on the question &#8220;The following directory is not empty: ... Do you want to continue?&#8221;). Then right-click on the project&#8217;s root folder and select &#8220;Add to PYTHONPATH&#8221;.</p>
-<blockquote>
-<div><a class="reference internal image-reference" href="_images/spyder_pythonpath.png"><img alt="_images/spyder_pythonpath.png" src="_images/spyder_pythonpath.png" style="width: 12cm;" /></a>
-</div></blockquote>
-<p>Any <tt class="docutils literal"><span class="pre">ImportErrors</span></tt> are likely due to this not being done correctly.</p>
-</div>
+  <div class="section" id="editors">
+<span id="id1"></span><h1>Editors<a class="headerlink" href="#editors" title="Permalink to this headline">¶</a></h1>
+<p>A good editor is the Swiss Army knife of any serious programmer: It can do almost anything and makes you much more productive. The built-in ones are not an option.</p>
+<p>I personally use <a class="reference external" href="http://www.sublimetext.com/">Sublime Text</a>. If you are reading this because you are about to attend my <a class="reference external" href="http://www.wiwi.uni-bonn.de/gaudecker/teaching.html#effective-programming-practices-for-economists-msc-phd">Effective Programming Practices for Economists</a> course, I suggest you to try it out for the time being. It is free to try out for a while and it will make it easier for you to follow my live coding. Download <a class="reference external" href="http://www.sublimetext.com/3">Version 3</a>, it is stable.</p>
+<p>Modern open source alternatives are <a class="reference external" href="http://www.lighttable.com/">Light Table</a> or <a class="reference external" href="https://atom.io/">Atom</a>, Emacs and Vim are Unix classics that will stay around among power users. They are certainly not for the faint of heart, though.</p>
 </div>
 
 
@@ -91,15 +75,6 @@
       </div>
       <div class="sphinxsidebar">
         <div class="sphinxsidebarwrapper">
-  <h3><a href="index.html">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">Using Spyder with Waf</a><ul>
-<li><a class="reference internal" href="#debugging-wscript-files">Debugging wscript files</a></li>
-<li><a class="reference internal" href="#setting-the-pythonpath">Setting the PYTHONPATH</a></li>
-</ul>
-</li>
-</ul>
-
   <h4>Previous topic</h4>
   <p class="topless"><a href="git.html"
                         title="previous chapter">Git</a></p>
