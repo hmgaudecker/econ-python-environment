@@ -69,13 +69,14 @@
   <div class="section" id="additional-python-libraries">
 <span id="id1"></span><h1>Additional Python libraries<a class="headerlink" href="#additional-python-libraries" title="Permalink to this headline">¶</a></h1>
 <p>In order to obtain a recent development version of <a class="reference external" href="http://statsmodels.sourceforge.net/">statsmodels</a>, type:</p>
-<div class="highlight-python"><div class="highlight"><pre>conda update -c https://conda.binstar.org/statsmodels statsmodels
+<div class="highlight-python"><div class="highlight"><pre>conda update -c https://conda.anaconda.org/statsmodels statsmodels
 </pre></div>
 </div>
 <p>If you need the bootstrap for your standard errors or you are going to estimate ARCH models, I recommend <a class="reference external" href="http://www.kevinsheppard.com">Kevin Sheppard</a>&#8216;s <a class="reference external" href="https://github.com/bashtage/arch">arch</a> package:</p>
-<div class="highlight-python"><div class="highlight"><pre>conda install -c https://conda.binstar.org/bashtage arch
+<div class="highlight-python"><div class="highlight"><pre>conda install -c https://conda.anaconda.org/bashtage arch
 </pre></div>
 </div>
+<p>The last time I checked, this only worked for Windows and Linux. Check <a class="reference external" href="https://github.com/bashtage/arch">https://github.com/bashtage/arch</a> for other options.</p>
 <p>Note that the bootstrap implementation is by no means specific to ARCH models. For completenes, here are links to <a class="reference external" href="http://arch.readthedocs.org/en/latest/bootstrap/background.html">documentation</a> and <a class="reference external" href="http://nbviewer.ipython.org/github/bashtage/arch/blob/master/examples/bootstrap_examples.ipynb">examples</a>.</p>
 <p>We also need to install a couple of more libraries. Type:</p>
 <div class="highlight-python"><div class="highlight"><pre>conda install coverage
