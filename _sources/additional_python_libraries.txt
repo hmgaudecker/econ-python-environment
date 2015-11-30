@@ -41,7 +41,7 @@ We also need to install a couple of more libraries. Type::
 
     followed by "Shift + Enter". It should say::
 
-        '3.4.1 |Anaconda ... '
+        '3.5.0 |Continuum Analytics, Inc.
 
     If it does not, you need to modify your path settings, moving Anaconda first.
 

@@ -17,8 +17,7 @@ Table of Contents
     :maxdepth: 2
 
     python
-    windows_specifics
-    macos_specifics
     additional_python_libraries
     git
+    paths
     editors
