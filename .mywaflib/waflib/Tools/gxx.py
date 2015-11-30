@@ -8,6 +8,8 @@
 g++/llvm detection.
 """
 
+import os, sys
+from waflib import Configure, Options, Utils
 from waflib.Tools import ccroot, ar
 from waflib.Configure import conf
 
@@ -17,10 +19,8 @@ def find_gxx(conf):
 	Find the program g++, and if present, try to detect its version number
 	"""
 	cxx = conf.find_program(['g++', 'c++'], var='CXX')
-	cxx = conf.cmd_to_list(cxx)
 	conf.get_cc_version(cxx, gcc=True)
 	conf.env.CXX_NAME = 'gcc'
-	conf.env.CXX      = cxx
 
 @conf
 def gxx_common_flags(conf):
@@ -97,7 +97,7 @@ def gxx_modifier_darwin(conf):
 	"""Configuration flags for executing g++ on MacOS"""
 	v = conf.env
 	v['CXXFLAGS_cxxshlib']   = ['-fPIC']
-	v['LINKFLAGS_cxxshlib']  = ['-dynamiclib', '-Wl,-compatibility_version,1', '-Wl,-current_version,1']
+	v['LINKFLAGS_cxxshlib']  = ['-dynamiclib']
 	v['cxxshlib_PATTERN']    = 'lib%s.dylib'
 	v['FRAMEWORKPATH_ST']    = '-F%s'
 	v['FRAMEWORK_ST']        = ['-framework']
@@ -122,13 +122,20 @@ def gxx_modifier_aix(conf):
 def gxx_modifier_hpux(conf):
 	v = conf.env
 	v['SHLIB_MARKER']        = []
-	v['STLIB_MARKER']        = '-Bstatic'
+	v['STLIB_MARKER']        = []
 	v['CFLAGS_cxxshlib']     = ['-fPIC','-DPIC']
 	v['cxxshlib_PATTERN']    = 'lib%s.sl'
 
 @conf
 def gxx_modifier_openbsd(conf):
 	conf.env.SONAME_ST = []
+
+@conf
+def gcc_modifier_osf1V(conf):
+	v = conf.env
+	v['SHLIB_MARKER']        = []
+	v['STLIB_MARKER']        = []
+	v['SONAME_ST']           = []
 
 @conf
 def gxx_modifier_platform(conf):

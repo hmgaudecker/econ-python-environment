@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # encoding: utf-8
-# Hans-Martin von Gaudecker, 2012-13
+# Hans-Martin von Gaudecker, 2012-15
 
 """
 Run a Stata do-script in the directory specified by **ctx.bldnode**. The
@@ -45,11 +45,14 @@ import sys
 from waflib import Task, TaskGen, Logs
 
 if sys.platform == 'darwin':
-	STATA_COMMANDS = [
+	STATA_NAMES = [
 		'Stata64MP', 'StataMP',
 		'Stata64SE', 'StataSE',
 		'Stata64', 'Stata'
 	]
+	STATA_PATHS = ['/Applications/Stata/%s.app/Contents/MacOS/%s' % (sv, sv)
+					for sv in STATA_NAMES]
+	STATA_COMMANDS = STATA_NAMES + STATA_PATHS
 	STATAFLAGS = '-e -q do'
 	STATAENCODING = 'MacRoman'
 elif sys.platform.startswith('linux'):
@@ -79,12 +82,14 @@ def configure(ctx):
 		errmsg="""\n
 No Stata executable found!\n\n
 If Stata is needed:\n
-	1) Check the settings of your system path.
-	2) Note we are looking for Stata executables called: %s
+	1) Check the settings of your system PATH.
+	2) Note we are looking for Stata executables named
+	   %s,
+	   both in the Applications folder and on the PATH.
 	   If yours has a different name, please report to hmgaudecker [at] gmail\n
 Else:\n
 	Do not load the 'run_do_script' tool in the main wscript.\n\n"""
-		% STATA_COMMANDS
+		% STATA_NAMES
 	)
 	ctx.env.STATAFLAGS = STATAFLAGS
 	ctx.env.STATAENCODING = STATAENCODING
@@ -108,6 +113,28 @@ class run_do_script_base(Task.Task):
 			kw["stdout"] = kw["stderr"] = None
 		return bld.exec_command(cmd, **kw) 
 
+	def keyword(self):
+		"""
+		Override the 'Compiling' default.
+
+		"""
+
+		return 'Running'
+
+	def __str__(self):
+		"""
+		More useful output.
+
+		"""
+
+		return "{prepend} [Stata] {stataflags} {fn} {dofiletrunk} {append}".format(
+				prepend=self.env.PREPEND,
+				stataflags=self.env.STATAFLAGS,
+				fn=self.inputs[0].path_from(self.inputs[0].ctx.launch_node()),
+				dofiletrunk=self.env.DOFILETRUNK,
+				append=self.env.APPEND
+			)
+
 class run_do_script(run_do_script_base):
 	"""Use the log file automatically kept by Stata for error-catching.
 	Erase it if the task finished without error. If not, it will show
@@ -121,7 +148,7 @@ class run_do_script(run_do_script_base):
 				"""Running Stata on %s failed with code %r.\n
 Check the log file %s, last 10 lines\n\n%s\n\n\n"""
 				% (
-					self.inputs[0].nice_path(),
+					self.inputs[0].relpath(),
 					ret,
 					self.env.LOGFILEPATH,
 					log_tail
@@ -136,12 +163,11 @@ Check the log file %s, last 10 lines\n\n%s\n\n\n"""
 				http://teaching.sociology.ul.ie/bhalpin/wordpress/?p=122
 		"""
 
-		if sys.version_info[0] >= 3:
+		if sys.version_info.major >= 3:
 			kwargs = {'file': self.env.LOGFILEPATH, 'mode':
 					  'r', 'encoding': self.env.STATAENCODING}
 		else:
 			kwargs = {'name': self.env.LOGFILEPATH, 'mode': 'r'}
-
 		with open(**kwargs) as log:
 			log_tail = log.readlines()[-10:]
 			for line in log_tail:
@@ -181,12 +207,12 @@ def apply_run_do_script(tg):
 		if not node:
 			tg.bld.fatal(
 				'Could not find dependency %r for running %r'
-				% (x, src_node.nice_path())
+				% (x, src_node.relpath())
 			)
 		tsk.dep_nodes.append(node)
 	Logs.debug(
 		'deps: found dependencies %r for running %r'
-		% (tsk.dep_nodes, src_node.nice_path())
+		% (tsk.dep_nodes, src_node.relpath())
 	)
 
 	# Bypass the execution of process_source by setting the source to an empty

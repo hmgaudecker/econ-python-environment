@@ -64,7 +64,7 @@ def check_ruby_version(self, minver=()):
 	ruby = self.env.RUBY
 
 	try:
-		version = self.cmd_and_log([ruby, '-e', 'puts defined?(VERSION) ? VERSION : RUBY_VERSION']).strip()
+		version = self.cmd_and_log(ruby + ['-e', 'puts defined?(VERSION) ? VERSION : RUBY_VERSION']).strip()
 	except Exception:
 		self.fatal('could not determine ruby version')
 	self.env.RUBY_VERSION = version
@@ -98,18 +98,19 @@ def check_ruby_ext_devel(self):
 	version = tuple(map(int, self.env.RUBY_VERSION.split(".")))
 
 	def read_out(cmd):
-		return Utils.to_list(self.cmd_and_log([self.env.RUBY, '-rrbconfig', '-e', cmd]))
+		return Utils.to_list(self.cmd_and_log(self.env.RUBY + ['-rrbconfig', '-e', cmd]))
 
 	def read_config(key):
-		return read_out('puts Config::CONFIG[%r]' % key)
+		return read_out('puts RbConfig::CONFIG[%r]' % key)
 
 	ruby = self.env['RUBY']
-	archdir = read_config('archdir')
-	cpppath = archdir
+	cpppath = archdir = read_config('archdir')
 
 	if version >= (1, 9, 0):
 		ruby_hdrdir = read_config('rubyhdrdir')
 		cpppath += ruby_hdrdir
+		if version >= (2, 0, 0):
+			cpppath += read_config('rubyarchhdrdir')
 		cpppath += [os.path.join(ruby_hdrdir[0], read_config('arch')[0])]
 
 	self.check(header_name='ruby.h', includes=cpppath, errmsg='could not find ruby header file')
@@ -157,7 +158,7 @@ def check_ruby_module(self, module_name):
 	"""
 	self.start_msg('Ruby module %s' % module_name)
 	try:
-		self.cmd_and_log([self.env['RUBY'], '-e', 'require \'%s\';puts 1' % module_name])
+		self.cmd_and_log(self.env.RUBY + ['-e', 'require \'%s\';puts 1' % module_name])
 	except Exception:
 		self.end_msg(False)
 		self.fatal('Could not find the ruby module %r' % module_name)

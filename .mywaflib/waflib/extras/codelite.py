@@ -303,13 +303,13 @@ def rm_blank_lines(txt):
 BOM = '\xef\xbb\xbf'
 try:
         BOM = bytes(BOM, 'iso8859-1') # python 3
-except:
+except NameError:
         pass
 
 def stealth_write(self, data, flags='wb'):
         try:
                 x = unicode
-        except:
+        except NameError:
                 data = data.encode('utf-8') # python 3
         else:
                 data = data.decode(sys.getfilesystemencoding(), 'replace')
@@ -588,10 +588,10 @@ class vsnode_project_view(vsnode_alias):
                 vsnode_alias.__init__(self, ctx, node, name)
                 self.tg = self.ctx() # fake one, cannot remove
                 self.exclude_files = Node.exclude_regs + '''
-waf-1.7.*
-waf3-1.7.*/**
-.waf-1.7.*
-.waf3-1.7.*/**
+waf-1.8.*
+waf3-1.8.*/**
+.waf-1.8.*
+.waf3-1.8.*/**
 **/*.sdf
 **/*.suo
 **/*.ncb
@@ -603,7 +603,7 @@ waf3-1.7.*/**
                 self.source = self.ctx.srcnode.ant_glob('**', excl=self.exclude_files)
 
         def get_build_command(self, props):
-                params = self.get_build_params(props) + (self.ctx.cmd,)               
+                params = self.get_build_params(props) + (self.ctx.cmd,)
                 return "%s %s %s" % params
 
         def get_clean_command(self, props):

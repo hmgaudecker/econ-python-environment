@@ -38,6 +38,17 @@ def waf_entry_point(current_directory, version, wafdir):
 		ctx.parse_args()
 		sys.exit(0)
 
+	if len(sys.argv) > 1:
+		# os.path.join handles absolute paths in sys.argv[1] accordingly (it discards the previous ones)
+		# if sys.argv[1] is not an absolute path, then it is relative to the current working directory
+		potential_wscript = os.path.join(current_directory, sys.argv[1])
+		# maybe check if the file is executable
+		# perhaps extract 'wscript' as a constant
+		if os.path.basename(potential_wscript) == 'wscript' and os.path.isfile(potential_wscript):
+			# need to explicitly normalize the path, as it may contain extra '/.'
+			current_directory = os.path.normpath(os.path.dirname(potential_wscript))
+			sys.argv.pop(1)
+
 	Context.waf_dir = wafdir
 	Context.launch_dir = current_directory
 
@@ -45,14 +56,22 @@ def waf_entry_point(current_directory, version, wafdir):
 	no_climb = os.environ.get('NOCLIMB', None)
 	if not no_climb:
 		for k in no_climb_commands:
-			if k in sys.argv:
-				no_climb = True
-				break
+			for y in sys.argv:
+				if y.startswith(k):
+					no_climb = True
+					break
+
+	# if --top is provided assume the build started in the top directory
+	for x in sys.argv:
+		if x.startswith('--top='):
+			Context.run_dir = Context.top_dir = x[6:]
+		if x.startswith('--out='):
+			Context.out_dir = x[6:]
 
 	# try to find a lock file (if the project was configured)
 	# at the same time, store the first wscript file seen
 	cur = current_directory
-	while cur:
+	while cur and not Context.top_dir:
 		lst = os.listdir(cur)
 		if Options.lockfile in lst:
 			env = ConfigSet.ConfigSet()
@@ -63,7 +82,7 @@ def waf_entry_point(current_directory, version, wafdir):
 				pass
 			else:
 				# check if the folder was not moved
-				for x in [env.run_dir, env.top_dir, env.out_dir]:
+				for x in (env.run_dir, env.top_dir, env.out_dir):
 					if Utils.is_win32:
 						if cur == x:
 							load = True
@@ -118,7 +137,7 @@ def waf_entry_point(current_directory, version, wafdir):
 		sys.exit(1)
 
 	try:
-		set_main_module(Context.run_dir + os.sep + Context.WSCRIPT_FILE)
+		set_main_module(os.path.join(Context.run_dir, Context.WSCRIPT_FILE))
 	except Errors.WafError as e:
 		Logs.pprint('RED', e.verbose_msg)
 		Logs.error(str(e))
@@ -132,7 +151,7 @@ def waf_entry_point(current_directory, version, wafdir):
 	import cProfile, pstats
 	cProfile.runctx("from waflib import Scripting; Scripting.run_commands()", {}, {}, 'profi.txt')
 	p = pstats.Stats('profi.txt')
-	p.sort_stats('time').print_stats(25) # or 'cumulative'
+	p.sort_stats('time').print_stats(75) # or 'cumulative'
 	"""
 	try:
 		run_commands()
@@ -170,7 +189,7 @@ def set_main_module(file_path):
 		name = obj.__name__
 		if not name in Context.g_module.__dict__:
 			setattr(Context.g_module, name, obj)
-	for k in [update, dist, distclean, distcheck, update]:
+	for k in (update, dist, distclean, distcheck, update):
 		set_def(k)
 	# add dummy init and shutdown functions if they're not defined
 	if not 'init' in Context.g_module.__dict__:
@@ -187,13 +206,17 @@ def parse_options():
 	"""
 	Context.create_context('options').execute()
 
+	for var in Options.envvars:
+		(name, value) = var.split('=', 1)
+		os.environ[name.strip()] = value
+
 	if not Options.commands:
 		Options.commands = [default_cmd]
 	Options.commands = [x for x in Options.commands if x != 'options'] # issue 1076
 
 	# process some internal Waf options
 	Logs.verbose = Options.options.verbose
-	Logs.init_log()
+	#Logs.init_log()
 
 	if Options.options.zones:
 		Logs.zones = Options.options.zones.split(',')
@@ -216,7 +239,11 @@ def run_command(cmd_name):
 	ctx.log_timer = Utils.Timer()
 	ctx.options = Options.options # provided for convenience
 	ctx.cmd = cmd_name
-	ctx.execute()
+	try:
+		ctx.execute()
+	finally:
+		# Issue 1374
+		ctx.finalize()
 	return ctx
 
 def run_commands():
@@ -254,13 +281,13 @@ def distclean_dir(dirname):
 	for (root, dirs, files) in os.walk(dirname):
 		for f in files:
 			if _can_distclean(f):
-				fname = root + os.sep + f
+				fname = os.path.join(root, f)
 				try:
 					os.remove(fname)
 				except OSError:
 					Logs.warn('Could not remove %r' % fname)
 
-	for x in [Context.DBFILE, 'config.log']:
+	for x in (Context.DBFILE, 'config.log'):
 		try:
 			os.remove(x)
 		except OSError:
@@ -337,7 +364,7 @@ class Dist(Context.Context):
 		node = self.base_path.make_node(arch_name)
 		try:
 			node.delete()
-		except Exception:
+		except OSError:
 			pass
 
 		files = self.get_files()
@@ -357,7 +384,7 @@ class Dist(Context.Context):
 				zip.write(x.abspath(), archive_name, zipfile.ZIP_DEFLATED)
 			zip.close()
 		else:
-			self.fatal('Valid algo types are tar.bz2, tar.gz or zip')
+			self.fatal('Valid algo types are tar.bz2, tar.gz, tar.xz or zip')
 
 		try:
 			from hashlib import sha1 as sha
@@ -448,10 +475,11 @@ class Dist(Context.Context):
 		try:
 			return self.excl
 		except AttributeError:
-			self.excl = Node.exclude_regs + ' **/waf-1.7.* **/.waf-1.7* **/waf3-1.7.* **/.waf3-1.7* **/*~ **/*.rej **/*.orig **/*.pyc **/*.pyo **/*.bak **/*.swp **/.lock-w*'
-			nd = self.root.find_node(Context.out_dir)
-			if nd:
-				self.excl += ' ' + nd.path_from(self.base_path)
+			self.excl = Node.exclude_regs + ' **/waf-1.8.* **/.waf-1.8* **/waf3-1.8.* **/.waf3-1.8* **/*~ **/*.rej **/*.orig **/*.pyc **/*.pyo **/*.bak **/*.swp **/.lock-w*'
+			if Context.out_dir:
+				nd = self.root.find_node(Context.out_dir)
+				if nd:
+					self.excl += ' ' + nd.path_from(self.base_path)
 			return self.excl
 
 	def get_files(self):
@@ -536,16 +564,26 @@ def distcheck(ctx):
 	pass
 
 def update(ctx):
-	'''updates the plugins from the *waflib/extras* directory'''
-	lst = Options.options.files.split(',')
-	if not lst:
-		lst = [x for x in Utils.listdir(Context.waf_dir + '/waflib/extras') if x.endswith('.py')]
+	lst = Options.options.files
+	if lst:
+		lst = lst.split(',')
+	else:
+		path = os.path.join(Context.waf_dir, 'waflib', 'extras')
+		lst = [x for x in Utils.listdir(path) if x.endswith('.py')]
 	for x in lst:
 		tool = x.replace('.py', '')
+		if not tool:
+			continue
 		try:
-			Configure.download_tool(tool, force=True, ctx=ctx)
+			dl = Configure.download_tool
+		except AttributeError:
+			ctx.fatal('The command "update" is dangerous; include the tool "use_config" in your project!')
+		try:
+			dl(tool, force=True, ctx=ctx)
 		except Errors.WafError:
-			Logs.error('Could not find the tool %s in the remote repository' % x)
+			Logs.error('Could not find the tool %r in the remote repository' % x)
+		else:
+			Logs.warn('Updated %r' % tool)
 
 def autoconfigure(execute_method):
 	"""
@@ -574,6 +612,8 @@ def autoconfigure(execute_method):
 		if do_config:
 			Options.commands.insert(0, self.cmd)
 			Options.commands.insert(0, 'configure')
+			if Configure.autoconfig == 'clobber':
+				Options.options.__dict__ = env.options
 			return
 
 		return execute_method(self)

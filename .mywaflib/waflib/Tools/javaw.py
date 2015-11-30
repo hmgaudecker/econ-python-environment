@@ -236,11 +236,6 @@ class javac(Task.Task):
 	"""
 	color   = 'BLUE'
 
-	nocache = True
-	"""
-	The .class files cannot be put into a cache at the moment
-	"""
-
 	vars = ['CLASSPATH', 'JAVACFLAGS', 'JAVAC', 'OUTDIR']
 	"""
 	The javac task will be executed again if the variables CLASSPATH, JAVACFLAGS, JAVAC or OUTDIR change.
@@ -315,6 +310,9 @@ class javac(Task.Task):
 @feature('javadoc')
 @after_method('process_rule')
 def create_javadoc(self):
+	"""
+	Creates a javadoc task (feature 'javadoc')
+	"""
 	tsk = self.create_task('javadoc')
 	tsk.classpath = getattr(self, 'classpath', [])
 	self.javadoc_package = Utils.to_list(self.javadoc_package)
@@ -373,7 +371,6 @@ def configure(self):
 
 	for x in 'javac java jar javadoc'.split():
 		self.find_program(x, var=x.upper(), path_list=java_path)
-		self.env[x.upper()] = self.cmd_to_list(self.env[x.upper()])
 
 	if 'CLASSPATH' in self.environ:
 		v['CLASSPATH'] = self.environ['CLASSPATH']

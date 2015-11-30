@@ -14,7 +14,7 @@ def post_install(ctx):
 def build(ctx):
     ctx(
         features='sphinx',
-        buildername='html',
+        builders=['html'],
         source='conf.py',
         name='sphinx_html'
     )

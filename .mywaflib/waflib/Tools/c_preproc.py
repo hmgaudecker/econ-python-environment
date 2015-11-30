@@ -54,14 +54,15 @@ strict_quotes = 0
 
 g_optrans = {
 'not':'!',
+'not_eq':'!',
 'and':'&&',
-'bitand':'&',
 'and_eq':'&=',
 'or':'||',
-'bitor':'|',
 'or_eq':'|=',
 'xor':'^',
 'xor_eq':'^=',
+'bitand':'&',
+'bitor':'|',
 'compl':'~',
 }
 """Operators such as and/or/xor for c++. Set an empty dict to disable."""
@@ -211,17 +212,17 @@ def reduce_nums(val_1, val_2, val_op):
 	elif d=='*':  c = a*b
 	elif d=='/':  c = a/b
 	elif d=='^':  c = a^b
-	elif d=='|':  c = a|b
-	elif d=='||': c = int(a or b)
-	elif d=='&':  c = a&b
-	elif d=='&&': c = int(a and b)
 	elif d=='==': c = int(a == b)
-	elif d=='!=': c = int(a != b)
+	elif d=='|'  or d == 'bitor':  c = a|b
+	elif d=='||' or d == 'or' : c = int(a or b)
+	elif d=='&'  or d == 'bitand':  c = a&b
+	elif d=='&&' or d == 'and': c = int(a and b)
+	elif d=='!=' or d == 'not_eq': c = int(a != b)
+	elif d=='^'  or d == 'xor':  c = int(a^b)
 	elif d=='<=': c = int(a <= b)
 	elif d=='<':  c = int(a < b)
 	elif d=='>':  c = int(a > b)
 	elif d=='>=': c = int(a >= b)
-	elif d=='^':  c = int(a^b)
 	elif d=='<<': c = a<<b
 	elif d=='>>': c = a>>b
 	else: c = 0
@@ -408,8 +409,8 @@ def reduce_tokens(lst, defs, ban=[]):
 	:return: the new list of tokens
 	:rtype: value, list
 	"""
-	i = 0
 
+	i = 0
 	while i < len(lst):
 		(p, v) = lst[i]
 
@@ -682,7 +683,8 @@ def extract_include(txt, defs):
 			return '"', toks[0][1]
 	else:
 		if toks[0][1] == '<' and toks[-1][1] == '>':
-			return stringize(toks).lstrip('<').rstrip('>')
+			ret = '<', stringize(toks).lstrip('<').rstrip('>')
+			return ret
 
 	raise PreprocError("could not parse include %s." % txt)
 
@@ -732,7 +734,9 @@ def tokenize_private(s):
 			v = m(name)
 			if v:
 				if name == IDENT:
-					try: v = g_optrans[v]; name = OP
+					try:
+						g_optrans[v];
+						name = OP
 					except KeyError:
 						# c++ specific
 						if v.lower() == "true":
@@ -845,9 +849,15 @@ class c_parser(object):
 		:return: the node if found
 		:rtype: :py:class:`waflib.Node.Node`
 		"""
+		if filename.endswith('.moc'):
+			# we could let the qt4 module use a subclass, but then the function "scan" below must be duplicated
+			# in the qt4 and in the qt5 classes. So we have two lines here and it is sufficient. TODO waf 1.9
+			self.names.append(filename)
+			return None
+
 		self.curfile = filename
 
-		# for msvc it should be a for loop on the whole stack
+		# for msvc it should be a for loop over the whole stack
 		found = self.cached_find_resource(self.currentnode_stack[-1], filename)
 
 		for n in self.nodepaths:
@@ -856,10 +866,9 @@ class c_parser(object):
 			found = self.cached_find_resource(n, filename)
 
 		if found and not found in self.ban_includes:
-			# TODO the duplicates do not increase the no-op build times too much, but they may be worth removing
+			# TODO duplicates do not increase the no-op build times too much, but they may be worth removing
 			self.nodes.append(found)
-			if filename[-4:] != '.moc':
-				self.addlines(found)
+			self.addlines(found)
 		else:
 			if not filename in self.names:
 				self.names.append(filename)
@@ -920,8 +929,7 @@ class c_parser(object):
 		try:
 			self.parse_cache = bld.parse_cache
 		except AttributeError:
-			bld.parse_cache = {}
-			self.parse_cache = bld.parse_cache
+			self.parse_cache = bld.parse_cache = {}
 
 		self.current_file = node
 		self.addlines(node)

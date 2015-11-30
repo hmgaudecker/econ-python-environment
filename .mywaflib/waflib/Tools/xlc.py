@@ -14,10 +14,8 @@ def find_xlc(conf):
 	Detect the Aix C compiler
 	"""
 	cc = conf.find_program(['xlc_r', 'xlc'], var='CC')
-	cc = conf.cmd_to_list(cc)
 	conf.get_xlc_version(cc)
 	conf.env.CC_NAME = 'xlc'
-	conf.env.CC      = cc
 
 @conf
 def xlc_common_flags(conf):

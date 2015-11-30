@@ -4,8 +4,8 @@
 # Thomas Nagy 2008-2010 (ita)
 
 import re
-from waflib import Task, Utils, Logs
-from waflib.TaskGen import extension, feature, after_method
+from waflib import Task, Logs
+from waflib.TaskGen import extension
 from waflib.Configure import conf
 from waflib.Tools import c_preproc
 
@@ -20,8 +20,7 @@ SWIG_EXTS = ['.swig', '.i']
 re_module = re.compile('%module(?:\s*\(.*\))?\s+(.+)', re.M)
 
 re_1 = re.compile(r'^%module.*?\s+([\w]+)\s*?$', re.M)
-re_2 = re.compile('%include "(.*)"', re.M)
-re_3 = re.compile('#include "(.*)"', re.M)
+re_2 = re.compile('[#%]include [<"](.*)[">]', re.M)
 
 class swig(Task.Task):
 	color   = 'BLUE'
@@ -62,8 +61,6 @@ class swig(Task.Task):
 
 	def scan(self):
 		"scan for swig dependencies, climb the .i files"
-		env = self.env
-
 		lst_src = []
 
 		seen = []
@@ -82,7 +79,7 @@ class swig(Task.Task):
 			code = c_preproc.re_cpp.sub(c_preproc.repl, code)
 
 			# find .i files and project headers
-			names = re_2.findall(code) + re_3.findall(code)
+			names = re_2.findall(code)
 			for n in names:
 				for d in self.generator.includes_nodes + [node.parent]:
 					u = d.find_resource(n)
@@ -133,12 +130,18 @@ def swig_c(self):
 
 @swigf
 def swig_python(tsk):
-	tsk.set_outputs(tsk.inputs[0].parent.find_or_declare(tsk.module + '.py'))
+	node = tsk.inputs[0].parent
+	if tsk.outdir:
+		node = tsk.outdir
+	tsk.set_outputs(node.find_or_declare(tsk.module+'.py'))
 
 @swigf
 def swig_ocaml(tsk):
-	tsk.set_outputs(tsk.inputs[0].parent.find_or_declare(tsk.module + '.ml'))
-	tsk.set_outputs(tsk.inputs[0].parent.find_or_declare(tsk.module + '.mli'))
+	node = tsk.inputs[0].parent
+	if tsk.outdir:
+		node = tsk.outdir
+	tsk.set_outputs(node.find_or_declare(tsk.module+'.ml'))
+	tsk.set_outputs(node.find_or_declare(tsk.module+'.mli'))
 
 @extension(*SWIG_EXTS)
 def i_file(self, node):
@@ -150,16 +153,18 @@ def i_file(self, node):
 	flags = self.to_list(getattr(self, 'swig_flags', []))
 	tsk.env.append_value('SWIGFLAGS', flags)
 
-	# looks like this is causing problems
-	#if not '-outdir' in flags:
-	#	tsk.env.append_value('SWIGFLAGS', ['-outdir', node.parent.abspath()])
+	tsk.outdir = None
+	if '-outdir' in flags:
+		outdir = flags[flags.index('-outdir')+1]
+		outdir = tsk.generator.bld.bldnode.make_node(outdir)
+		outdir.mkdir()
+		tsk.outdir = outdir
 
 @conf
 def check_swig_version(self):
-	"""Check for a minimum swig version like conf.check_swig_version('1.3.28')
-	or conf.check_swig_version((1,3,28)) """
+	"""Returns a tuple representing the swig version, like (1,3,28)"""
 	reg_swig = re.compile(r'SWIG Version\s(.*)', re.M)
-	swig_out = self.cmd_and_log('%s -version' % self.env['SWIG'])
+	swig_out = self.cmd_and_log(self.env.SWIG + ['-version'])
 
 	swigver = tuple([int(s) for s in reg_swig.findall(swig_out)[0].split('.')])
 	self.env['SWIG_VERSION'] = swigver
@@ -168,7 +173,7 @@ def check_swig_version(self):
 	return swigver
 
 def configure(conf):
-	swig = conf.find_program('swig', var='SWIG')
+	conf.find_program('swig', var='SWIG')
 	conf.env.SWIGPATH_ST = '-I%s'
 	conf.env.SWIGDEF_ST = '-D%s'
 

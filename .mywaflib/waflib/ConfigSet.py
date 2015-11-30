@@ -167,6 +167,7 @@ class ConfigSet(object):
 			for x in keys:
 				tbl[x] = copy.deepcopy(tbl[x])
 			self.table = tbl
+		return self
 
 	def get_flat(self, key):
 		"""
@@ -211,9 +212,9 @@ class ConfigSet(object):
 
 		The value must be a list or a tuple
 		"""
-		current_value = self._get_list_value_for_modification(var)
 		if isinstance(val, str): # if there were string everywhere we could optimize this
 			val = [val]
+		current_value = self._get_list_value_for_modification(var)
 		current_value.extend(val)
 
 	def prepend_value(self, var, val):

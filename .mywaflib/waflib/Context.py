@@ -6,19 +6,19 @@
 Classes and functions required for waf commands
 """
 
-import os, imp, sys
+import os, re, imp, sys
 from waflib import Utils, Errors, Logs
 import waflib.Node
 
 # the following 3 constants are updated on each new release (do not touch)
-HEXVERSION=0x1071000
+HEXVERSION=0x1080e00
 """Constant updated on new releases"""
 
-WAFVERSION="1.7.16"
+WAFVERSION="1.8.14"
 """Constant updated on new releases"""
 
-WAFREVISION="73c1705078f8c9c51a33e20f221a309d5a94b5e1"
-"""Constant updated on new releases"""
+WAFREVISION="ce8234c396bb246a20ea9f51594ee051d5b378e7"
+"""Git revision when the waf version is updated"""
 
 ABI = 98
 """Version of the build data cache file format (used in :py:const:`waflib.Context.DBFILE`)"""
@@ -55,7 +55,7 @@ waf_dir = ''
 
 local_repo = ''
 """Local repository containing additional Waf tools (plugins)"""
-remote_repo = 'http://waf.googlecode.com/git/'
+remote_repo = 'https://raw.githubusercontent.com/waf-project/waf/master/'
 """
 Remote directory containing downloadable waf tools. The missing tools can be downloaded by using::
 
@@ -188,6 +188,18 @@ class Context(ctx):
 		"""
 		return id(self)
 
+	def finalize(self):
+		"""
+		Use to free resources such as open files potentially held by the logger
+		"""
+		try:
+			logger = self.logger
+		except AttributeError:
+			pass
+		else:
+			Logs.free_logger(logger)
+			delattr(self, 'logger')
+
 	def load(self, tool_list, *k, **kw):
 		"""
 		Load a Waf tool as a module, and try calling the function named :py:const:`waflib.Context.Context.fun` from it.
@@ -198,9 +210,10 @@ class Context(ctx):
 		"""
 		tools = Utils.to_list(tool_list)
 		path = Utils.to_list(kw.get('tooldir', ''))
+		with_sys_path = kw.get('with_sys_path', True)
 
 		for t in tools:
-			module = load_tool(t, path)
+			module = load_tool(t, path, with_sys_path=with_sys_path)
 			fun = getattr(module, kw.get('name', self.fun), None)
 			if fun:
 				fun(self)
@@ -236,7 +249,7 @@ class Context(ctx):
 		if self.cur_script:
 			self.path = self.cur_script.parent
 
-	def recurse(self, dirs, name=None, mandatory=True, once=True):
+	def recurse(self, dirs, name=None, mandatory=True, once=True, encoding=None):
 		"""
 		Run user code from the supplied list of directories.
 		The directories can be either absolute, or relative to the directory
@@ -271,7 +284,7 @@ class Context(ctx):
 				cache[node] = True
 				self.pre_recurse(node)
 				try:
-					function_code = node.read('rU')
+					function_code = node.read('rU', encoding)
 					exec(compile(function_code, node.abspath(), 'exec'), self.exec_dict)
 				finally:
 					self.post_recurse(node)
@@ -282,7 +295,7 @@ class Context(ctx):
 					cache[tup] = True
 					self.pre_recurse(node)
 					try:
-						wscript_module = load_module(node.abspath())
+						wscript_module = load_module(node.abspath(), encoding=encoding)
 						user_function = getattr(wscript_module, (name or self.fun), None)
 						if not user_function:
 							if not mandatory:
@@ -309,11 +322,11 @@ class Context(ctx):
 		unlike :py:meth:`waflib.Context.Context.cmd_and_log`
 
 		:param cmd: command argument for subprocess.Popen
-		:param kw: keyword arguments for subprocess.Popen
+		:param kw: keyword arguments for subprocess.Popen. The parameters input/timeout will be passed to wait/communicate.
 		"""
 		subprocess = Utils.subprocess
 		kw['shell'] = isinstance(cmd, str)
-		Logs.debug('runner: %r' % cmd)
+		Logs.debug('runner: %r' % (cmd,))
 		Logs.debug('runner_env: kw=%s' % kw)
 
 		if self.logger:
@@ -324,14 +337,28 @@ class Context(ctx):
 		if 'stderr' not in kw:
 			kw['stderr'] = subprocess.PIPE
 
+		if Logs.verbose and not kw['shell'] and not Utils.check_exe(cmd[0]):
+			raise Errors.WafError("Program %s not found!" % cmd[0])
+
+		wargs = {}
+		if 'timeout' in kw:
+			if kw['timeout'] is not None:
+				wargs['timeout'] = kw['timeout']
+			del kw['timeout']
+		if 'input' in kw:
+			if kw['input']:
+				wargs['input'] = kw['input']
+				kw['stdin'] = Utils.subprocess.PIPE
+			del kw['input']
+
 		try:
 			if kw['stdout'] or kw['stderr']:
 				p = subprocess.Popen(cmd, **kw)
-				(out, err) = p.communicate()
+				(out, err) = p.communicate(**wargs)
 				ret = p.returncode
 			else:
 				out, err = (None, None)
-				ret = subprocess.Popen(cmd, **kw).wait()
+				ret = subprocess.Popen(cmd, **kw).wait(**wargs)
 		except Exception as e:
 			raise Errors.WafError('Execution failure: %s' % str(e), ex=e)
 
@@ -341,37 +368,38 @@ class Context(ctx):
 			if self.logger:
 				self.logger.debug('out: %s' % out)
 			else:
-				sys.stdout.write(out)
+				Logs.info(out, extra={'stream':sys.stdout, 'c1': ''})
 		if err:
 			if not isinstance(err, str):
 				err = err.decode(sys.stdout.encoding or 'iso8859-1')
 			if self.logger:
 				self.logger.error('err: %s' % err)
 			else:
-				sys.stderr.write(err)
+				Logs.info(err, extra={'stream':sys.stderr, 'c1': ''})
 
 		return ret
 
 	def cmd_and_log(self, cmd, **kw):
 		"""
-		Execute a command and return stdout if the execution is successful.
+		Execute a command and return stdout/stderr if the execution is successful.
 		An exception is thrown when the exit status is non-0. In that case, both stderr and stdout
 		will be bound to the WafError object::
 
 			def configure(conf):
 				out = conf.cmd_and_log(['echo', 'hello'], output=waflib.Context.STDOUT, quiet=waflib.Context.BOTH)
 				(out, err) = conf.cmd_and_log(['echo', 'hello'], output=waflib.Context.BOTH)
+				(out, err) = conf.cmd_and_log(cmd, input='\\n'.encode(), output=waflib.Context.STDOUT)
 				try:
 					conf.cmd_and_log(['which', 'someapp'], output=waflib.Context.BOTH)
 				except Exception as e:
 					print(e.stdout, e.stderr)
 
 		:param cmd: args for subprocess.Popen
-		:param kw: keyword arguments for subprocess.Popen
+		:param kw: keyword arguments for subprocess.Popen. The parameters input/timeout will be passed to wait/communicate.
 		"""
 		subprocess = Utils.subprocess
 		kw['shell'] = isinstance(cmd, str)
-		Logs.debug('runner: %r' % cmd)
+		Logs.debug('runner: %r' % (cmd,))
 
 		if 'quiet' in kw:
 			quiet = kw['quiet']
@@ -385,12 +413,27 @@ class Context(ctx):
 		else:
 			to_ret = STDOUT
 
+		if Logs.verbose and not kw['shell'] and not Utils.check_exe(cmd[0]):
+			raise Errors.WafError("Program %s not found!" % cmd[0])
+
 		kw['stdout'] = kw['stderr'] = subprocess.PIPE
 		if quiet is None:
 			self.to_log(cmd)
+
+		wargs = {}
+		if 'timeout' in kw:
+			if kw['timeout'] is not None:
+				wargs['timeout'] = kw['timeout']
+			del kw['timeout']
+		if 'input' in kw:
+			if kw['input']:
+				wargs['input'] = kw['input']
+				kw['stdin'] = Utils.subprocess.PIPE
+			del kw['input']
+
 		try:
 			p = subprocess.Popen(cmd, **kw)
-			(out, err) = p.communicate()
+			(out, err) = p.communicate(**wargs)
 		except Exception as e:
 			raise Errors.WafError('Execution failure: %s' % str(e), ex=e)
 
@@ -459,7 +502,7 @@ class Context(ctx):
 			sys.stderr.flush()
 
 
-	def msg(self, msg, result, color=None):
+	def msg(self, *k, **kw):
 		"""
 		Print a configuration message of the form ``msg: result``.
 		The second part of the message will be in colors. The output
@@ -477,17 +520,32 @@ class Context(ctx):
 		:param color: color to use, see :py:const:`waflib.Logs.colors_lst`
 		:type color: string
 		"""
-		self.start_msg(msg)
+		try:
+			msg = kw['msg']
+		except KeyError:
+			msg = k[0]
 
+		self.start_msg(msg, **kw)
+
+		try:
+			result = kw['result']
+		except KeyError:
+			result = k[1]
+
+		color = kw.get('color', None)
 		if not isinstance(color, str):
 			color = result and 'GREEN' or 'YELLOW'
 
-		self.end_msg(result, color)
+		self.end_msg(result, color, **kw)
 
-	def start_msg(self, msg):
+	def start_msg(self, *k, **kw):
 		"""
 		Print the beginning of a 'Checking for xxx' message. See :py:meth:`waflib.Context.Context.msg`
 		"""
+		if kw.get('quiet', None):
+			return
+
+		msg = kw.get('msg', None) or k[0]
 		try:
 			if self.in_msg:
 				self.in_msg += 1
@@ -504,11 +562,15 @@ class Context(ctx):
 			self.to_log(x)
 		Logs.pprint('NORMAL', "%s :" % msg.ljust(self.line_just), sep='')
 
-	def end_msg(self, result, color=None):
+	def end_msg(self, *k, **kw):
 		"""Print the end of a 'Checking for' message. See :py:meth:`waflib.Context.Context.msg`"""
+		if kw.get('quiet', None):
+			return
 		self.in_msg -= 1
 		if self.in_msg:
 			return
+
+		result = kw.get('result', None) or k[0]
 
 		defcolor = 'GREEN'
 		if result == True:
@@ -520,15 +582,39 @@ class Context(ctx):
 			msg = str(result)
 
 		self.to_log(msg)
-		Logs.pprint(color or defcolor, msg)
-
+		try:
+			color = kw['color']
+		except KeyError:
+			if len(k) > 1 and k[1] in Logs.colors_lst:
+				# compatibility waf 1.7
+				color = k[1]
+			else:
+				color = defcolor
+		Logs.pprint(color, msg)
 
 	def load_special_tools(self, var, ban=[]):
 		global waf_dir
-		lst = self.root.find_node(waf_dir).find_node('waflib/extras').ant_glob(var)
-		for x in lst:
-			if not x.name in ban:
-				load_tool(x.name.replace('.py', ''))
+		if os.path.isdir(waf_dir):
+			lst = self.root.find_node(waf_dir).find_node('waflib/extras').ant_glob(var)
+			for x in lst:
+				if not x.name in ban:
+					load_tool(x.name.replace('.py', ''))
+		else:
+			from zipfile import PyZipFile
+			waflibs = PyZipFile(waf_dir)
+			lst = waflibs.namelist()
+			for x in lst:
+				if not re.match("waflib/extras/%s" % var.replace("*", ".*"), var):
+					continue
+				f = os.path.basename(x)
+				doban = False
+				for b in ban:
+					r = b.replace("*", ".*")
+					if re.match(b, f):
+						doban = True
+				if not doban:
+					f = f.replace('.py', '')
+					load_tool(f)
 
 cache_modules = {}
 """
@@ -536,7 +622,7 @@ Dictionary holding already loaded modules, keyed by their absolute path.
 The modules are added automatically by :py:func:`waflib.Context.load_module`
 """
 
-def load_module(path):
+def load_module(path, encoding=None):
 	"""
 	Load a source file as a python module.
 
@@ -552,21 +638,21 @@ def load_module(path):
 
 	module = imp.new_module(WSCRIPT_FILE)
 	try:
-		code = Utils.readf(path, m='rU')
-	except (IOError, OSError):
+		code = Utils.readf(path, m='rU', encoding=encoding)
+	except EnvironmentError:
 		raise Errors.WafError('Could not read the file %r' % path)
 
 	module_dir = os.path.dirname(path)
 	sys.path.insert(0, module_dir)
 
-	exec(compile(code, path, 'exec'), module.__dict__)
-	sys.path.remove(module_dir)
+	try    : exec(compile(code, path, 'exec'), module.__dict__)
+	finally: sys.path.remove(module_dir)
 
 	cache_modules[path] = module
 
 	return module
 
-def load_tool(tool, tooldir=None):
+def load_tool(tool, tooldir=None, ctx=None, with_sys_path=True):
 	"""
 	Import a Waf tool (python module), and store it in the dict :py:const:`waflib.Context.Context.tools`
 
@@ -574,41 +660,44 @@ def load_tool(tool, tooldir=None):
 	:param tool: Name of the tool
 	:type  tooldir: list
 	:param tooldir: List of directories to search for the tool module
+	:type  with_sys_path: boolean
+	:param with_sys_path: whether or not to search the regular sys.path, besides waf_dir and potentially given tooldirs
 	"""
 	if tool == 'java':
 		tool = 'javaw' # jython
-	elif tool == 'compiler_cc':
-		tool = 'compiler_c' # TODO remove in waf 1.8
 	else:
 		tool = tool.replace('++', 'xx')
 
-	if tooldir:
-		assert isinstance(tooldir, list)
-		sys.path = tooldir + sys.path
-		try:
-			__import__(tool)
+	origSysPath = sys.path
+	if not with_sys_path: sys.path = []
+	try:
+		if tooldir:
+			assert isinstance(tooldir, list)
+			sys.path = tooldir + sys.path
+			try:
+				__import__(tool)
+			finally:
+				for d in tooldir:
+					sys.path.remove(d)
 			ret = sys.modules[tool]
 			Context.tools[tool] = ret
 			return ret
-		finally:
-			for d in tooldir:
-				sys.path.remove(d)
-	else:
-		global waf_dir
-		try:
-			os.stat(os.path.join(waf_dir, 'waflib', 'extras', tool + '.py'))
-		except OSError:
-			try:
-				os.stat(os.path.join(waf_dir, 'waflib', 'Tools', tool + '.py'))
-			except OSError:
-				d = tool # user has messed with sys.path
-			else:
-				d = 'waflib.Tools.%s' % tool
 		else:
-			d = 'waflib.extras.%s' % tool
-
-		__import__(d)
-		ret = sys.modules[d]
-		Context.tools[tool] = ret
-		return ret
+			if not with_sys_path: sys.path.insert(0, waf_dir)
+			try:
+				for x in ('waflib.Tools.%s', 'waflib.extras.%s', 'waflib.%s', '%s'):
+					try:
+						__import__(x % tool)
+						break
+					except ImportError:
+						x = None
+				if x is None: # raise an exception
+					__import__(tool)
+			finally:
+				if not with_sys_path: sys.path.remove(waf_dir)
+			ret = sys.modules[x % tool]
+			Context.tools[tool] = ret
+			return ret
+	finally:
+		if not with_sys_path: sys.path += origSysPath
 

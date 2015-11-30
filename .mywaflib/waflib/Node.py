@@ -59,32 +59,10 @@ Ant patterns for files and folders to exclude while doing the
 recursive traversal in :py:meth:`waflib.Node.Node.ant_glob`
 """
 
-def split_path(path):
-	"""
-	Split a path by os.sep (This is not os.path.split)
-
-	:param path: path to split
-	:type path: string
-	:rtype: list of string
-	:return: the path, split
-	"""
-	return path.split('/')
-
-def split_path_cygwin(path):
-	if path.startswith('//'):
-		ret = path.split('/')[2:]
-		ret[0] = '/' + ret[0]
-		return ret
-	return path.split('/')
-
-re_sp = re.compile('[/\\\\]')
-def split_path_win32(path):
-	if path.startswith('\\\\'):
-		ret = re.split(re_sp, path)[2:]
-		ret[0] = '\\' + ret[0]
-		return ret
-	return re.split(re_sp, path)
-
+# TODO waf 1.9
+split_path = Utils.split_path_unix
+split_path_cygwin = Utils.split_path_cygwin
+split_path_win32 = Utils.split_path_win32
 if sys.platform == 'cygwin':
 	split_path = split_path_cygwin
 elif Utils.is_win32:
@@ -99,7 +77,7 @@ class Node(object):
 
 	The Node objects are not thread safe in any way.
 	"""
-
+	dict_class = dict
 	__slots__ = ('name', 'sig', 'children', 'parent', 'cache_abspath', 'cache_isdir', 'cache_sig')
 	def __init__(self, name, parent):
 		self.name = name
@@ -115,7 +93,8 @@ class Node(object):
 		self.name = data[0]
 		self.parent = data[1]
 		if data[2] is not None:
-			self.children = data[2]
+			# Issue 1480
+			self.children = self.dict_class(data[2])
 		if data[3] is not None:
 			self.sig = data[3]
 
@@ -183,15 +162,18 @@ class Node(object):
 		os.chmod(self.abspath(), val)
 
 	def delete(self):
-		"""Delete the file/folders, and remove this node from the tree. It becomes invalid after that"""
+		"""Delete the file/folder, and remove this node from the tree. Do not use this object after calling this method."""
 		try:
-			if hasattr(self, 'children'):
-				shutil.rmtree(self.abspath())
-			else:
-				os.remove(self.abspath())
-		except OSError:
-			pass
-		self.evict()
+			try:
+				if hasattr(self, 'children'):
+					shutil.rmtree(self.abspath())
+				else:
+					os.remove(self.abspath())
+			except OSError as e:
+				if os.path.exists(self.abspath()):
+					raise e
+		finally:
+			self.evict()
 
 	def evict(self):
 		"""Internal - called when a node is removed"""
@@ -242,7 +224,7 @@ class Node(object):
 			try:
 				self.children
 			except AttributeError:
-				self.children = {}
+				self.children = self.dict_class()
 
 		self.cache_isdir = True
 
@@ -266,7 +248,7 @@ class Node(object):
 			try:
 				ch = cur.children
 			except AttributeError:
-				cur.children = {}
+				cur.children = self.dict_class()
 			else:
 				try:
 					cur = cur.children[x]
@@ -320,7 +302,7 @@ class Node(object):
 					cur = cur.children[x]
 					continue
 			else:
-				cur.children = {}
+				cur.children = self.dict_class()
 			cur = self.__class__(x, cur)
 		return cur
 
@@ -384,8 +366,12 @@ class Node(object):
 			c1 = c1.parent
 			c2 = c2.parent
 
-		for i in range(up):
-			lst.append('..')
+		if c1.parent:
+			for i in range(up):
+				lst.append('..')
+		else:
+			if lst and not Utils.is_win32:
+				lst.append('')
 		lst.reverse()
 		return os.sep.join(lst) or '.'
 
@@ -399,23 +385,29 @@ class Node(object):
 			pass
 		# think twice before touching this (performance + complexity + correctness)
 
-		if os.sep == '/':
-			if not self.parent:
-				val = os.sep
-			elif not self.parent.name:
-				val = os.sep + self.name
-			else:
-				val = self.parent.abspath() + os.sep + self.name
+		if not self.parent:
+			val = os.sep
+		elif not self.parent.name:
+			val = os.sep + self.name
 		else:
+			val = self.parent.abspath() + os.sep + self.name
+		self.cache_abspath = val
+		return val
+
+	if Utils.is_win32:
+		def abspath(self):
+			try:
+				return self.cache_abspath
+			except AttributeError:
+				pass
 			if not self.parent:
 				val = ''
 			elif not self.parent.name:
 				val = self.name + os.sep
 			else:
 				val = self.parent.abspath().rstrip(os.sep) + os.sep + self.name
-
-		self.cache_abspath = val
-		return val
+			self.cache_abspath = val
+			return val
 
 	def is_child_of(self, node):
 		"""
@@ -458,7 +450,7 @@ class Node(object):
 		try:
 			lst = set(self.children.keys())
 		except AttributeError:
-			self.children = {}
+			self.children = self.dict_class()
 		else:
 			if remove:
 				for x in lst - set(dircont):
@@ -750,13 +742,6 @@ class Node(object):
 
 		return self.parent.find_or_declare([name])
 
-	def nice_path(self, env=None):
-		"""
-		Return the path seen from the launch directory.
-		Can be used for opening files easily (copy-paste in the console).
-		"""
-		return self.path_from(self.ctx.launch_node())
-
 	def bldpath(self):
 		"Path seen from the build directory default/src/foo.cpp"
 		return self.path_from(self.ctx.bldnode)
@@ -779,11 +764,6 @@ class Node(object):
 		"Build path without the file name"
 		return self.parent.bldpath()
 
-	def bld_base(self):
-		"Build path without the extension: src/dir/foo(.cpp)"
-		s = os.path.splitext(self.name)[0]
-		return self.bld_dir() + os.sep + s
-
 	def get_bld_sig(self):
 		"""
 		Node signature, assuming the file is in the build directory
@@ -797,10 +777,6 @@ class Node(object):
 			self.sig = Utils.h_file(self.abspath())
 		self.cache_sig = ret = self.sig
 		return ret
-
-
-	# TODO Waf 1.8
-	search = search_node
 
 pickle_lock = Utils.threading.Lock()
 """Lock mandatory for thread-safe node serialization"""

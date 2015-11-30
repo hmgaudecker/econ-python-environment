@@ -83,6 +83,7 @@ def to_incnodes(self, inlst):
 			continue
 		seen.add(x)
 
+		# with a real lot of targets, it is sometimes interesting to cache the results below
 		if isinstance(x, Node.Node):
 			lst.append(x)
 		else:
@@ -153,7 +154,9 @@ class link_task(Task.Task):
 					# the import lib file name stays unversionned.
 					name = name + '-' + nums[0]
 				elif self.env.DEST_OS == 'openbsd':
-					pattern = '%s.%s.%s' % (pattern, nums[0], nums[1])
+					pattern = '%s.%s' % (pattern, nums[0])
+					if len(nums) >= 2:
+						pattern += '.%s' % nums[1]
 
 			tmp = folder + os.sep + pattern % name
 			target = self.generator.path.find_or_declare(tmp)
@@ -165,6 +168,9 @@ class stlink_task(link_task):
 	The target is always removed before being written.
 	"""
 	run_str = '${AR} ${ARFLAGS} ${AR_TGT_F}${TGT} ${AR_SRC_F}${SRC}'
+
+	chmod   = Utils.O644
+	"""Default installation mode for the static libraries"""
 
 def rm_tgt(cls):
 	old = cls.run
@@ -213,7 +219,7 @@ def apply_link(self):
 		inst_to = self.link_task.__class__.inst_to
 	if inst_to:
 		# install a copy of the node list we have at this moment (implib not added)
-		self.install_task = self.bld.install_files(inst_to, self.link_task.outputs[:], env=self.env, chmod=self.link_task.chmod)
+		self.install_task = self.bld.install_files(inst_to, self.link_task.outputs[:], env=self.env, chmod=self.link_task.chmod, task=self.link_task)
 
 @taskgen_method
 def use_rec(self, name, **kw):
@@ -251,6 +257,8 @@ def use_rec(self, name, **kw):
 
 	p = self.tmp_use_prec
 	for x in self.to_list(getattr(y, 'use', [])):
+		if self.env["STLIB_" + x]:
+			continue
 		try:
 			p[x].append(name)
 		except KeyError:
@@ -319,11 +327,11 @@ def process_use(self):
 		y = self.bld.get_tgen_by_name(x)
 		var = y.tmp_use_var
 		if var and link_task:
-			if var == 'LIB' or y.tmp_use_stlib:
+			if var == 'LIB' or y.tmp_use_stlib or x in names:
 				self.env.append_value(var, [y.target[y.target.rfind(os.sep) + 1:]])
 				self.link_task.dep_nodes.extend(y.link_task.outputs)
 				tmp_path = y.link_task.outputs[0].parent.path_from(self.bld.bldnode)
-				self.env.append_value(var + 'PATH', [tmp_path])
+				self.env.append_unique(var + 'PATH', [tmp_path])
 		else:
 			if y.tmp_use_objects:
 				self.add_objects_from_tgen(y)
@@ -404,19 +412,18 @@ def propagate_uselib_vars(self):
 	"""
 	_vars = self.get_uselib_vars()
 	env = self.env
+	app = env.append_value
+	feature_uselib = self.features + self.to_list(getattr(self, 'uselib', []))
+	for var in _vars:
+		y = var.lower()
+		val = getattr(self, y, [])
+		if val:
+			app(var, self.to_list(val))
 
-	for x in _vars:
-		y = x.lower()
-		env.append_unique(x, self.to_list(getattr(self, y, [])))
-
-	for x in self.features:
-		for var in _vars:
-			compvar = '%s_%s' % (var, x)
-			env.append_value(var, env[compvar])
-
-	for x in self.to_list(getattr(self, 'uselib', [])):
-		for v in _vars:
-			env.append_value(v, env[v + '_' + x])
+		for x in feature_uselib:
+			val = env['%s_%s' % (var, x)]
+			if val:
+				app(var, val)
 
 # ============ the code above must not know anything about import libs ==========
 
@@ -453,48 +460,70 @@ def apply_implib(self):
 			#gcc for windows takes *.def file a an input without any special flag
 			self.link_task.inputs.append(node)
 
-	try:
-		inst_to = self.install_path
-	except AttributeError:
-		inst_to = self.link_task.__class__.inst_to
-	if not inst_to:
-		return
-
-	self.implib_install_task = self.bld.install_as('${LIBDIR}/%s' % implib.name, implib, self.env)
+	# where to put the import library
+	if getattr(self, 'install_task', None):
+		try:
+			# user has given a specific installation path for the import library
+			inst_to = self.install_path_implib
+		except AttributeError:
+			try:
+				# user has given an installation path for the main library, put the import library in it
+				inst_to = self.install_path
+			except AttributeError:
+				# else, put the library in BINDIR and the import library in LIBDIR
+				inst_to = '${IMPLIBDIR}'
+				self.install_task.dest = '${BINDIR}'
+				if not self.env.IMPLIBDIR:
+					self.env.IMPLIBDIR = self.env.LIBDIR
+		self.implib_install_task = self.bld.install_files(inst_to, implib, env=self.env, chmod=self.link_task.chmod, task=self.link_task)
 
 # ============ the code above must not know anything about vnum processing on unix platforms =========
 
-re_vnum = re.compile('^([1-9]\\d*|0)[.]([1-9]\\d*|0)[.]([1-9]\\d*|0)$')
+re_vnum = re.compile('^([1-9]\\d*|0)([.]([1-9]\\d*|0)){0,2}?$')
 @feature('cshlib', 'cxxshlib', 'dshlib', 'fcshlib', 'vnum')
 @after_method('apply_link', 'propagate_uselib_vars')
 def apply_vnum(self):
 	"""
-	Enforce version numbering on shared libraries. The valid version numbers must have at most two dots::
+	Enforce version numbering on shared libraries. The valid version numbers must have either zero or two dots::
 
 		def build(bld):
 			bld.shlib(source='a.c', target='foo', vnum='14.15.16')
 
-	In this example, ``libfoo.so`` is installed as ``libfoo.so.1.2.3``, and the following symbolic links are created:
+	In this example on Linux platform, ``libfoo.so`` is installed as ``libfoo.so.14.15.16``, and the following symbolic links are created:
 
-	* ``libfoo.so   → libfoo.so.1.2.3``
-	* ``libfoo.so.1 → libfoo.so.1.2.3``
+	* ``libfoo.so    → libfoo.so.14.15.16``
+	* ``libfoo.so.14 → libfoo.so.14.15.16``
+
+	By default, the library will be assigned SONAME ``libfoo.so.14``, effectively declaring ABI compatibility between all minor and patch releases for the major version of the library.  When necessary, the compatibility can be explicitly defined using `cnum` parameter:
+
+		def build(bld):
+			bld.shlib(source='a.c', target='foo', vnum='14.15.16', cnum='14.15')
+
+	In this case, the assigned SONAME will be ``libfoo.so.14.15`` with ABI compatibility only between path releases for a specific major and minor version of the library.
+
+	On OS X platform, install-name parameter will follow the above logic for SONAME with exception that it also specifies an absolute path (based on install_path) of the library.
 	"""
 	if not getattr(self, 'vnum', '') or os.name != 'posix' or self.env.DEST_BINFMT not in ('elf', 'mac-o'):
 		return
 
 	link = self.link_task
 	if not re_vnum.match(self.vnum):
-		raise Errors.WafError('Invalid version %r for %r' % (self.vnum, self))
+		raise Errors.WafError('Invalid vnum %r for target %r' % (self.vnum, getattr(self, 'name', self)))
 	nums = self.vnum.split('.')
 	node = link.outputs[0]
+
+	cnum = getattr(self, 'cnum', str(nums[0]))
+	cnums = cnum.split('.')
+	if len(cnums)>len(nums) or nums[0:len(cnums)] != cnums:
+		raise Errors.WafError('invalid compatibility version %s' % cnum)
 
 	libname = node.name
 	if libname.endswith('.dylib'):
 		name3 = libname.replace('.dylib', '.%s.dylib' % self.vnum)
-		name2 = libname.replace('.dylib', '.%s.dylib' % nums[0])
+		name2 = libname.replace('.dylib', '.%s.dylib' % cnum)
 	else:
 		name3 = libname + '.' + self.vnum
-		name2 = libname + '.' + nums[0]
+		name2 = libname + '.' + cnum
 
 	# add the so name for the ld linker - to disable, just unset env.SONAME_ST
 	if self.env.SONAME_ST:
@@ -502,9 +531,11 @@ def apply_vnum(self):
 		self.env.append_value('LINKFLAGS', v.split())
 
 	# the following task is just to enable execution from the build dir :-/
-
 	if self.env.DEST_OS != 'openbsd':
-		self.create_task('vnum', node, [node.parent.find_or_declare(name2), node.parent.find_or_declare(name3)])
+		outs = [node.parent.find_or_declare(name3)]
+		if name2 != name3:
+			outs.append(node.parent.find_or_declare(name2))
+		self.create_task('vnum', node, outs)
 
 	if getattr(self, 'install_task', None):
 		self.install_task.hasrun = Task.SKIP_ME
@@ -516,9 +547,12 @@ def apply_vnum(self):
 			self.vnum_install_task = (t1,)
 		else:
 			t1 = bld.install_as(path + os.sep + name3, node, env=self.env, chmod=self.link_task.chmod)
-			t2 = bld.symlink_as(path + os.sep + name2, name3)
 			t3 = bld.symlink_as(path + os.sep + libname, name3)
-			self.vnum_install_task = (t1, t2, t3)
+			if name2 != name3:
+				t2 = bld.symlink_as(path + os.sep + name2, name3)
+				self.vnum_install_task = (t1, t2, t3)
+			else:
+				self.vnum_install_task = (t1, t3)
 
 	if '-dynamiclib' in self.env['LINKFLAGS']:
 		# this requires after(propagate_uselib_vars)
@@ -528,8 +562,10 @@ def apply_vnum(self):
 			inst_to = self.link_task.__class__.inst_to
 		if inst_to:
 			p = Utils.subst_vars(inst_to, self.env)
-			path = os.path.join(p, self.link_task.outputs[0].name)
+			path = os.path.join(p, name2)
 			self.env.append_value('LINKFLAGS', ['-install_name', path])
+			self.env.append_value('LINKFLAGS', '-Wl,-compatibility_version,%s' % cnum)
+			self.env.append_value('LINKFLAGS', '-Wl,-current_version,%s' % self.vnum)
 
 class vnum(Task.Task):
 	"""
@@ -538,6 +574,8 @@ class vnum(Task.Task):
 	color = 'CYAN'
 	quient = True
 	ext_in = ['.bin']
+	def keyword(self):
+		return 'Symlinking'
 	def run(self):
 		for x in self.outputs:
 			path = x.abspath()
@@ -660,4 +698,22 @@ def read_object(self, obj):
 	if not isinstance(obj, self.path.__class__):
 		obj = self.path.find_resource(obj)
 	return self(features='fake_obj', source=obj, name=obj.name)
+
+@feature('cxxprogram', 'cprogram')
+@after_method('apply_link', 'process_use')
+def set_full_paths_hpux(self):
+	"""
+	On hp-ux, extend the libpaths and static library paths to absolute paths
+	"""
+	if self.env.DEST_OS != 'hp-ux':
+		return
+	base = self.bld.bldnode.abspath()
+	for var in ['LIBPATH', 'STLIBPATH']:
+		lst = []
+		for x in self.env[var]:
+			if x.startswith('/'):
+				lst.append(x)
+			else:
+				lst.append(os.path.normpath(os.path.join(base, x)))
+		self.env[var] = lst
 

@@ -6,7 +6,7 @@
 Tasks represent atomic operations such as processes.
 """
 
-import os, shutil, re, tempfile
+import os, re, sys
 from waflib import Utils, Logs, Errors
 
 # task states
@@ -63,42 +63,8 @@ def f(tsk):
 	return tsk.exec_command(lst, cwd=wd, env=env.env or None)
 '''
 
-def cache_outputs(cls):
-	"""
-	Task class decorator applied to all task classes by default unless they define the attribute 'nocache'::
-
-		from waflib import Task
-		class foo(Task.Task):
-			nocache = True
-
-	If bld.cache_global is defined and if the task instances produces output nodes,
-	the files will be copied into a folder in the cache directory
-
-	The files may also be retrieved from that folder, if it exists
-	"""
-	m1 = cls.run
-	def run(self):
-		bld = self.generator.bld
-		if bld.cache_global and not bld.nocache:
-			if self.can_retrieve_cache():
-				return 0
-		return m1(self)
-	cls.run = run
-
-	m2 = cls.post_run
-	def post_run(self):
-		bld = self.generator.bld
-		ret = m2(self)
-		if bld.cache_global and not bld.nocache:
-			self.put_files_cache()
-		return ret
-	cls.post_run = post_run
-
-	return cls
-
-
 classes = {}
-"class tasks created by user scripts or Waf tools are kept in this dict name -> class object"
+"Class tasks created by user scripts or Waf tools (maps names to class objects). Task classes defined in Waf tools are registered here through the metaclass :py:class:`waflib.Task.store_task_type`."
 
 class store_task_type(type):
 	"""
@@ -120,6 +86,8 @@ class store_task_type(type):
 				# if a string is provided, convert it to a method
 				(f, dvars) = compile_fun(cls.run_str, cls.shell)
 				cls.hcode = cls.run_str
+				cls.orig_run_str = cls.run_str
+				# change the name of run_str or it is impossible to subclass with a function
 				cls.run_str = None
 				cls.run = f
 				cls.vars = list(set(cls.vars + dvars))
@@ -128,8 +96,8 @@ class store_task_type(type):
 				# getattr(cls, 'hcode') would look in the upper classes
 				cls.hcode = Utils.h_fun(cls.run)
 
-			if not getattr(cls, 'nocache', None):
-				cls = cache_outputs(cls)
+			if sys.hexversion > 0x3000000:
+				cls.hcode = cls.hcode.encode('iso8859-1', 'xmlcharrefreplace')
 
 			# be creative
 			getattr(cls, 'register', classes)[name] = cls
@@ -150,6 +118,8 @@ class TaskBase(evil):
 	#. runnable_status: ask the task if it should be run, skipped, or if we have to ask later
 	#. run: let threads execute the task
 	#. post_run: let threads update the data regarding the task (cache)
+
+	.. warning:: For backward compatibility reasons, the suffix "_task" is truncated in derived class names. This limitation will be removed in Waf 1.9.
 	"""
 
 	color = 'GREEN'
@@ -187,12 +157,17 @@ class TaskBase(evil):
 	def __str__(self):
 		"string to display to the user"
 		if hasattr(self, 'fun'):
-			return 'executing: %s\n' % self.fun.__name__
-		return self.__class__.__name__ + '\n'
+			return self.fun.__name__
+		return self.__class__.__name__
 
 	def __hash__(self):
 		"Very fast hashing scheme but not persistent (replace/implement in subclasses and see :py:meth:`waflib.Task.Task.uid`)"
 		return id(self)
+
+	def keyword(self):
+		if hasattr(self, 'fun'):
+			return 'Function'
+		return 'Processing'
 
 	def exec_command(self, cmd, **kw):
 		"""
@@ -283,7 +258,22 @@ class TaskBase(evil):
 
 	def log_display(self, bld):
 		"Write the execution status on the context logger"
-		bld.to_log(self.display())
+		if self.generator.bld.progress_bar == 3:
+			return
+
+		s = self.display()
+		if s:
+			if bld.logger:
+				logger = bld.logger
+			else:
+				logger = Logs
+
+			if self.generator.bld.progress_bar == 1:
+				c1 = Logs.colors.cursor_off
+				c2 = Logs.colors.cursor_on
+				logger.info(s, extra={'stream': sys.stderr, 'terminator':'', 'c1': c1, 'c2' : c2})
+			else:
+				logger.info(s, extra={'terminator':'', 'c1': '', 'c2' : ''})
 
 	def display(self):
 		"""
@@ -323,8 +313,11 @@ class TaskBase(evil):
 
 		total = master.total
 		n = len(str(total))
-		fs = '[%%%dd/%%%dd] %%s%%s%%s' % (n, n)
-		return fs % (cur(), total, col1, s, col2)
+		fs = '[%%%dd/%%%dd] %%s%%s%%s%%s\n' % (n, n)
+		kw = self.keyword()
+		if kw:
+			kw += ' '
+		return fs % (cur(), total, kw, col1, s, col2)
 
 	def attr(self, att, default=None):
 		"""
@@ -374,14 +367,24 @@ class TaskBase(evil):
 
 	def colon(self, var1, var2):
 		"""
-		private function for the moment
+		Support code for scriptlet expressions such as ${FOO_ST:FOO}
+		If the first variable (FOO_ST) is empty, then an empty list is returned
 
-		used for scriptlet expressions such as ${FOO_ST:FOO}, for example, if
-		env.FOO_ST = ['-a', '-b']
-		env.FOO    = ['1', '2']
-		then the result will be ['-a', '-b', '1', '-a', '-b', '2']
+		The results will be slightly different if FOO_ST is a list, for example::
+
+			env.FOO_ST = ['-a', '-b']
+			env.FOO_ST = '-I%s'
+			# ${FOO_ST:FOO} returns
+			['-Ip1', '-Ip2']
+
+			env.FOO    = ['p1', 'p2']
+			# ${FOO_ST:FOO} returns
+			['-a', '-b', 'p1', '-a', '-b', 'p2']
 		"""
 		tmp = self.env[var1]
+		if not tmp:
+			return []
+
 		if isinstance(var2, str):
 			it = self.env[var2]
 		else:
@@ -389,8 +392,6 @@ class TaskBase(evil):
 		if isinstance(tmp, str):
 			return [tmp % x for x in it]
 		else:
-			if Logs.verbose and not tmp and it:
-				Logs.warn('Missing env variable %r for task %r (generator %r)' % (var1, self, self.generator))
 			lst = []
 			for y in it:
 				lst.extend(tmp)
@@ -403,6 +404,8 @@ class Task(TaskBase):
 	uses a hash value (from :py:class:`waflib.Task.Task.signature`) which is persistent from build to build. When the value changes,
 	the task has to be executed. The method :py:class:`waflib.Task.Task.post_run` will assign the task signature to the output
 	nodes (if present).
+
+	.. warning:: For backward compatibility reasons, the suffix "_task" is truncated in derived class names. This limitation will be removed in Waf 1.9.
 	"""
 	vars = []
 	"""Variables to depend on (class attribute used for :py:meth:`waflib.Task.Task.sig_vars`)"""
@@ -433,12 +436,35 @@ class Task(TaskBase):
 
 	def __str__(self):
 		"string to display to the user"
-		env = self.env
-		src_str = ' '.join([a.nice_path() for a in self.inputs])
-		tgt_str = ' '.join([a.nice_path() for a in self.outputs])
+		name = self.__class__.__name__
+		if self.outputs:
+			if (name.endswith('lib') or name.endswith('program')) or not self.inputs:
+				node = self.outputs[0]
+				return node.path_from(node.ctx.launch_node())
+		if not (self.inputs or self.outputs):
+			return self.__class__.__name__
+		if len(self.inputs) == 1:
+			node = self.inputs[0]
+			return node.path_from(node.ctx.launch_node())
+
+		src_str = ' '.join([a.path_from(a.ctx.launch_node()) for a in self.inputs])
+		tgt_str = ' '.join([a.path_from(a.ctx.launch_node()) for a in self.outputs])
 		if self.outputs: sep = ' -> '
 		else: sep = ''
-		return '%s: %s%s%s\n' % (self.__class__.__name__.replace('_task', ''), src_str, sep, tgt_str)
+		return '%s: %s%s%s' % (self.__class__.__name__.replace('_task', ''), src_str, sep, tgt_str)
+
+	def keyword(self):
+		name = self.__class__.__name__
+		if name.endswith('lib') or name.endswith('program'):
+			return 'Linking'
+		if len(self.inputs) == 1 and len(self.outputs) == 1:
+			return 'Compiling'
+		if not self.inputs:
+			if self.outputs:
+				return 'Creating'
+			else:
+				return 'Running'
+		return 'Processing'
 
 	def __repr__(self):
 		"for debugging purposes"
@@ -470,14 +496,14 @@ class Task(TaskBase):
 		try:
 			return self.uid_
 		except AttributeError:
-			# this is not a real hot zone, but we want to avoid surprises here
 			m = Utils.md5()
 			up = m.update
-			up(self.__class__.__name__.encode())
+			up(self.__class__.__name__)
 			for x in self.inputs + self.outputs:
-				up(x.abspath().encode())
+				up(x.abspath())
 			self.uid_ = m.digest()
 			return self.uid_
+
 
 	def set_inputs(self, inp):
 		"""
@@ -532,7 +558,7 @@ class Task(TaskBase):
 		except AttributeError: pass
 
 		self.m = Utils.md5()
-		self.m.update(self.hcode.encode())
+		self.m.update(self.hcode)
 
 		# explicit deps
 		self.sig_explicit_deps()
@@ -611,7 +637,7 @@ class Task(TaskBase):
 				raise Errors.WafError(self.err_msg)
 
 			# important, store the signature for the next run
-			node.sig = sig
+			node.sig = node.cache_sig = sig
 
 		bld.task_sigs[self.uid()] = self.cache_sig
 
@@ -715,12 +741,14 @@ class Task(TaskBase):
 			try:
 				if prev == self.compute_sig_implicit_deps():
 					return prev
-			except Exception:
+			except Errors.TaskNotReady:
+				raise
+			except EnvironmentError:
 				# when a file was renamed (IOError usually), remove the stale nodes (headers in folders without source files)
 				# this will break the order calculation for headers created during the build in the source directory (should be uncommon)
 				# the behaviour will differ when top != out
 				for x in bld.node_deps.get(self.uid(), []):
-					if x.is_child_of(bld.srcnode):
+					if not x.is_bld():
 						try:
 							os.stat(x.abspath())
 						except OSError:
@@ -810,107 +838,20 @@ class Task(TaskBase):
 				if not tsk.hasrun:
 					#print "task is not ready..."
 					raise Errors.TaskNotReady('not ready')
-
-	def can_retrieve_cache(self):
-		"""
-		Used by :py:meth:`waflib.Task.cache_outputs`
-
-		Retrieve build nodes from the cache
-		update the file timestamps to help cleaning the least used entries from the cache
-		additionally, set an attribute 'cached' to avoid re-creating the same cache files
-
-		Suppose there are files in `cache/dir1/file1` and `cache/dir2/file2`:
-
-		#. read the timestamp of dir1
-		#. try to copy the files
-		#. look at the timestamp again, if it has changed, the data may have been corrupt (cache update by another process)
-		#. should an exception occur, ignore the data
-		"""
-
-		if not getattr(self, 'outputs', None):
-			return None
-
-		sig = self.signature()
-		ssig = Utils.to_hex(self.uid()) + Utils.to_hex(sig)
-
-		# first try to access the cache folder for the task
-		dname = os.path.join(self.generator.bld.cache_global, ssig)
+if sys.hexversion > 0x3000000:
+	def uid(self):
 		try:
-			t1 = os.stat(dname).st_mtime
-		except OSError:
-			return None
-
-		for node in self.outputs:
-			orig = os.path.join(dname, node.name)
-			try:
-				shutil.copy2(orig, node.abspath())
-				# mark the cache file as used recently (modified)
-				os.utime(orig, None)
-			except (OSError, IOError):
-				Logs.debug('task: failed retrieving file')
-				return None
-
-		# is it the same folder?
-		try:
-			t2 = os.stat(dname).st_mtime
-		except OSError:
-			return None
-
-		if t1 != t2:
-			return None
-
-		for node in self.outputs:
-			node.sig = sig
-			if self.generator.bld.progress_bar < 1:
-				self.generator.bld.to_log('restoring from cache %r\n' % node.abspath())
-
-		self.cached = True
-		return True
-
-	def put_files_cache(self):
-		"""
-		Used by :py:func:`waflib.Task.cache_outputs` to store the build files in the cache
-		"""
-
-		# file caching, if possible
-		# try to avoid data corruption as much as possible
-		if getattr(self, 'cached', None):
-			return None
-		if not getattr(self, 'outputs', None):
-			return None
-
-		sig = self.signature()
-		ssig = Utils.to_hex(self.uid()) + Utils.to_hex(sig)
-		dname = os.path.join(self.generator.bld.cache_global, ssig)
-		tmpdir = tempfile.mkdtemp(prefix=self.generator.bld.cache_global + os.sep + 'waf')
-
-		try:
-			shutil.rmtree(dname)
-		except Exception:
-			pass
-
-		try:
-			for node in self.outputs:
-				dest = os.path.join(tmpdir, node.name)
-				shutil.copy2(node.abspath(), dest)
-		except (OSError, IOError):
-			try:
-				shutil.rmtree(tmpdir)
-			except Exception:
-				pass
-		else:
-			try:
-				os.rename(tmpdir, dname)
-			except OSError:
-				try:
-					shutil.rmtree(tmpdir)
-				except Exception:
-					pass
-			else:
-				try:
-					os.chmod(dname, Utils.O755)
-				except Exception:
-					pass
+			return self.uid_
+		except AttributeError:
+			m = Utils.md5()
+			up = m.update
+			up(self.__class__.__name__.encode('iso8859-1', 'xmlcharrefreplace'))
+			for x in self.inputs + self.outputs:
+				up(x.abspath().encode('iso8859-1', 'xmlcharrefreplace'))
+			self.uid_ = m.digest()
+			return self.uid_
+	uid.__doc__ = Task.uid.__doc__
+	Task.uid = uid
 
 def is_before(t1, t2):
 	"""
@@ -1068,6 +1009,7 @@ def compile_fun_noshell(line):
 	def repl(match):
 		g = match.group
 		if g('dollar'): return "$"
+		elif g('backslash'): return '\\'
 		elif g('subst'): extr.append((g('var'), g('code'))); return "<<|@|>>"
 		return None
 
@@ -1142,8 +1084,7 @@ def compile_fun(line, shell=False):
 
 def task_factory(name, func=None, vars=None, color='GREEN', ext_in=[], ext_out=[], before=[], after=[], shell=False, scan=None):
 	"""
-	Deprecated. Return a new task subclass with the function ``run`` compiled from the line given.
-	Provided for compatibility with waf 1.4-1.5, when we did not have the metaclass to register new classes (will be removed in Waf 1.8)
+	Returns a new task subclass with the function ``run`` compiled from the line given.
 
 	:param func: method run
 	:type func: string or function
@@ -1212,7 +1153,7 @@ def update_outputs(cls):
 	def post_run(self):
 		old_post_run(self)
 		for node in self.outputs:
-			node.sig = Utils.h_file(node.abspath())
+			node.sig = node.cache_sig = Utils.h_file(node.abspath())
 			self.generator.bld.task_sigs[node.abspath()] = self.uid() # issue #1017
 	cls.post_run = post_run
 

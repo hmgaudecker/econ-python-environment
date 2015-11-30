@@ -8,6 +8,8 @@
 gcc/llvm detection.
 """
 
+import os, sys
+from waflib import Configure, Options, Utils
 from waflib.Tools import ccroot, ar
 from waflib.Configure import conf
 
@@ -17,10 +19,8 @@ def find_gcc(conf):
 	Find the program gcc, and if present, try to detect its version number
 	"""
 	cc = conf.find_program(['gcc', 'cc'], var='CC')
-	cc = conf.cmd_to_list(cc)
 	conf.get_cc_version(cc, gcc=True)
 	conf.env.CC_NAME = 'gcc'
-	conf.env.CC      = cc
 
 @conf
 def gcc_common_flags(conf):
@@ -97,7 +97,7 @@ def gcc_modifier_darwin(conf):
 	"""Configuration flags for executing gcc on MacOS"""
 	v = conf.env
 	v['CFLAGS_cshlib']       = ['-fPIC']
-	v['LINKFLAGS_cshlib']    = ['-dynamiclib', '-Wl,-compatibility_version,1', '-Wl,-current_version,1']
+	v['LINKFLAGS_cshlib']    = ['-dynamiclib']
 	v['cshlib_PATTERN']      = 'lib%s.dylib'
 	v['FRAMEWORKPATH_ST']    = '-F%s'
 	v['FRAMEWORK_ST']        = ['-framework']
@@ -121,13 +121,20 @@ def gcc_modifier_aix(conf):
 def gcc_modifier_hpux(conf):
 	v = conf.env
 	v['SHLIB_MARKER']        = []
-	v['STLIB_MARKER']        = '-Bstatic'
+	v['STLIB_MARKER']        = []
 	v['CFLAGS_cshlib']       = ['-fPIC','-DPIC']
 	v['cshlib_PATTERN']      = 'lib%s.sl'
 
 @conf
 def gcc_modifier_openbsd(conf):
 	conf.env.SONAME_ST = []
+
+@conf
+def gcc_modifier_osf1V(conf):
+	v = conf.env
+	v['SHLIB_MARKER']        = []
+	v['STLIB_MARKER']        = []
+	v['SONAME_ST']           = []
 
 @conf
 def gcc_modifier_platform(conf):

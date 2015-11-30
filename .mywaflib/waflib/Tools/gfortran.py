@@ -13,7 +13,6 @@ def find_gfortran(conf):
 	"""Find the gfortran program (will look in the environment variable 'FC')"""
 	fc = conf.find_program(['gfortran','g77'], var='FC')
 	# (fallback to g77 for systems, where no gfortran is available)
-	fc = conf.cmd_to_list(fc)
 	conf.get_gfortran_version(fc)
 	conf.env.FC_NAME = 'GFORTRAN'
 
@@ -64,7 +63,7 @@ def get_gfortran_version(conf, fc):
 		conf.fatal('Could not determine the compiler type')
 
 	k = {}
-	out = out.split('\n')
+	out = out.splitlines()
 	import shlex
 
 	for line in out:
