@@ -89,7 +89,7 @@
 <li><p class="first">Right-click on Computer. Then go to &#8220;Properties&#8221; and select the tab &#8220;Advanced System settings&#8221;. Choose &#8220;Environment Variables&#8221; and select &#8220;Path&#8221; from the list of system variables.</p>
 </li>
 <li><p class="first">Choose &#8220;Edit&#8221; and <strong>append</strong> (i.e., do <strong>not</strong> overwrite the previous value):</p>
-<div class="highlight-python"><div class="highlight"><pre>;C:\Path\to\program.exe
+<div class="highlight-python"><div class="highlight"><pre><span></span>;C:\Path\to\program.exe
 </pre></div>
 </div>
 <p>to the variable value &#8211; make sure the rest remains as it is. Example for Stata: if your Stata executable is <code class="docutils literal"><span class="pre">C:\Programme\Stata13\WSESTATA.EXE</span></code>, you should add <code class="docutils literal"><span class="pre">;C:\Programme\Stata13</span></code> to your path.</p>
@@ -114,7 +114,7 @@
 <p>I will now provide a step-by-step guide of how to create / adjust this file using a tiny editor called <code class="docutils literal"><span class="pre">nano</span></code>, if you are familiar with editing text files, just use your editor of choice.</p>
 <ol class="arabic">
 <li><p class="first">Open a Terminal and type:</p>
-<div class="highlight-python"><div class="highlight"><pre>nano ~/.bash_profile
+<div class="highlight-python"><div class="highlight"><pre><span></span>nano ~/.bash_profile
 </pre></div>
 </div>
 <p>You will see something like the following:</p>
@@ -122,11 +122,11 @@
 <p>If <code class="docutils literal"><span class="pre">.bash_profile</span></code> already existed, you will see some text at this point. If so, use the arrow keys to scroll all the way to the bottom of the file.</p>
 </li>
 <li><p class="first">Add the following line at the end of the file:</p>
-<div class="highlight-python"><div class="highlight"><pre>export PATH=&quot;${PATH}:/path/to/program/inside/package&quot;
+<div class="highlight-python"><div class="highlight"><pre><span></span>export PATH=&quot;${PATH}:/path/to/program/inside/package&quot;
 </pre></div>
 </div>
 <p>You will need to follow the same steps as before. Example for Stata:</p>
-<div class="highlight-python"><div class="highlight"><pre># Stata directory
+<div class="highlight-python"><div class="highlight"><pre><span></span># Stata directory
 export PATH=&quot;${PATH}:/Applications/Stata/StataMP.app/Contents/MacOS/&quot;
 </pre></div>
 </div>
@@ -136,7 +136,7 @@ export PATH=&quot;${PATH}:/Applications/Stata/StataMP.app/Contents/MacOS/&quot;
 <li><p class="first">Press <code class="docutils literal"><span class="pre">Return</span></code> and then <code class="docutils literal"><span class="pre">ctrl+o</span></code> (= WriteOut = save) and <code class="docutils literal"><span class="pre">Return</span></code> once more.</p>
 </li>
 <li><p class="first">Your default locale settings may conflict with some of the programs we&#8217;ll need. If you want to be on the safe side, add these lines to your <code class="docutils literal"><span class="pre">.bash_profile</span></code> file:</p>
-<div class="highlight-python"><div class="highlight"><pre>export LC_ALL=en_US.UTF-8
+<div class="highlight-python"><div class="highlight"><pre><span></span>export LC_ALL=en_US.UTF-8
 export LANG=en_US.UTF-8
 </pre></div>
 </div>
@@ -208,7 +208,7 @@ export LANG=en_US.UTF-8
 
     <div class="footer" role="contentinfo">
         &copy; Copyright 2010-2014, Hans-Martin von Gaudecker.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.1.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.5.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
