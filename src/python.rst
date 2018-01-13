@@ -3,9 +3,15 @@
 Anaconda Python Distribution
 ==============================
 
-Anaconda is a pre-packaged Python distribution for scientific users. [#]_  Direct your browser to https://www.anaconda.com/download and download the **Python 3** Graphical Installer for your machine. Then follow the steps described there. [#]_ 
+Anaconda is a pre-packaged Python distribution for scientific users. [#]_  Direct your browser to https://www.anaconda.com/download and download the **Python 3** Graphical Installer for your machine. Then follow the steps described there. [#]_
+During the installation process, make sure that Anaconda is registered as the system Python and that there are no spaces in the installation path.
 
+On Windows:
 
+.. image:: anaconda_installation.PNG
+    :width: 50%
+
+On Mac the bash profile is modified by default.
 
 .. note::
 
