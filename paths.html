@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>Setting paths to other programs in the shell &mdash; Guide for Setting up a Python Environment for Economic Research</title>
+    <title>Setting paths to other programs in the shell &#8212; Guide for Setting up a Python Environment for Economic Research</title>
     
     <link rel="stylesheet" href="_static/pyramid.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -17,19 +17,20 @@
         VERSION:     '',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-    <link rel="top" title="Guide for Setting up a Python Environment for Economic Research" href="index.html" />
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    <link rel="search" title="Search" href="search.html" />
     <link rel="next" title="Editors" href="editors.html" />
     <link rel="prev" title="Git" href="git.html" />
 
-<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
-<link rel="stylesheet" href="http://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Neuton&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Nobile:regular,italic,bold,bolditalic&amp;subset=latin" type="text/css" media="screen" charset="utf-8" />
 <!--[if lte IE 6]>
 <link rel="stylesheet" href="_static/ie6.css" type="text/css" media="screen" charset="utf-8" />
 <![endif]-->
@@ -57,7 +58,7 @@
         <li class="right" >
           <a href="git.html" title="Git"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -89,7 +90,7 @@
 <li><p class="first">Right-click on Computer. Then go to &#8220;Properties&#8221; and select the tab &#8220;Advanced System settings&#8221;. Choose &#8220;Environment Variables&#8221; and select &#8220;Path&#8221; from the list of system variables.</p>
 </li>
 <li><p class="first">Choose &#8220;Edit&#8221; and <strong>append</strong> (i.e., do <strong>not</strong> overwrite the previous value):</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span>;C:\Path\to\program.exe
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="p">;</span><span class="n">C</span><span class="p">:</span>\<span class="n">Path</span>\<span class="n">to</span>\<span class="n">program</span><span class="o">.</span><span class="n">exe</span>
 </pre></div>
 </div>
 <p>to the variable value &#8211; make sure the rest remains as it is. Example for Stata: if your Stata executable is <code class="docutils literal"><span class="pre">C:\Programme\Stata13\WSESTATA.EXE</span></code>, you should add <code class="docutils literal"><span class="pre">;C:\Programme\Stata13</span></code> to your path.</p>
@@ -114,7 +115,7 @@
 <p>I will now provide a step-by-step guide of how to create / adjust this file using a tiny editor called <code class="docutils literal"><span class="pre">nano</span></code>, if you are familiar with editing text files, just use your editor of choice.</p>
 <ol class="arabic">
 <li><p class="first">Open a Terminal and type:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span>nano ~/.bash_profile
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">nano</span> <span class="o">~/.</span><span class="n">bash_profile</span>
 </pre></div>
 </div>
 <p>You will see something like the following:</p>
@@ -122,12 +123,12 @@
 <p>If <code class="docutils literal"><span class="pre">.bash_profile</span></code> already existed, you will see some text at this point. If so, use the arrow keys to scroll all the way to the bottom of the file.</p>
 </li>
 <li><p class="first">Add the following line at the end of the file:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span>export PATH=&quot;${PATH}:/path/to/program/inside/package&quot;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">PATH</span><span class="o">=</span><span class="s2">&quot;$</span><span class="si">{PATH}</span><span class="s2">:/path/to/program/inside/package&quot;</span>
 </pre></div>
 </div>
 <p>You will need to follow the same steps as before. Example for Stata:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span># Stata directory
-export PATH=&quot;${PATH}:/Applications/Stata/StataMP.app/Contents/MacOS/&quot;
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="c1"># Stata directory</span>
+<span class="n">export</span> <span class="n">PATH</span><span class="o">=</span><span class="s2">&quot;$</span><span class="si">{PATH}</span><span class="s2">:/Applications/Stata/StataMP.app/Contents/MacOS/&quot;</span>
 </pre></div>
 </div>
 <p>In <code class="docutils literal"><span class="pre">/Applications/Stata/StataMP.app</span></code>, you may need to replace bits and pieces as appropriate for your installation (e.g. you might not have StataMP but StataSE).</p>
@@ -136,8 +137,8 @@ export PATH=&quot;${PATH}:/Applications/Stata/StataMP.app/Contents/MacOS/&quot;
 <li><p class="first">Press <code class="docutils literal"><span class="pre">Return</span></code> and then <code class="docutils literal"><span class="pre">ctrl+o</span></code> (= WriteOut = save) and <code class="docutils literal"><span class="pre">Return</span></code> once more.</p>
 </li>
 <li><p class="first">Your default locale settings may conflict with some of the programs we&#8217;ll need. If you want to be on the safe side, add these lines to your <code class="docutils literal"><span class="pre">.bash_profile</span></code> file:</p>
-<div class="highlight-python"><div class="highlight"><pre><span></span>export LC_ALL=en_US.UTF-8
-export LANG=en_US.UTF-8
+<div class="highlight-default"><div class="highlight"><pre><span></span><span class="n">export</span> <span class="n">LC_ALL</span><span class="o">=</span><span class="n">en_US</span><span class="o">.</span><span class="n">UTF</span><span class="o">-</span><span class="mi">8</span>
+<span class="n">export</span> <span class="n">LANG</span><span class="o">=</span><span class="n">en_US</span><span class="o">.</span><span class="n">UTF</span><span class="o">-</span><span class="mi">8</span>
 </pre></div>
 </div>
 <p>(Hat tip to Matthias Bannert)</p>
@@ -179,14 +180,11 @@ export LANG=en_US.UTF-8
 <div id="searchbox" style="display: none" role="search">
   <h3>Quick search</h3>
     <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
+      <div><input type="text" name="q" /></div>
+      <div><input type="submit" value="Go" /></div>
       <input type="hidden" name="check_keywords" value="yes" />
       <input type="hidden" name="area" value="default" />
     </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
 </div>
 <script type="text/javascript">$('#searchbox').show(0);</script>
         </div>
@@ -202,13 +200,13 @@ export LANG=en_US.UTF-8
         <li class="right" >
           <a href="git.html" title="Git"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &raquo;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">Guide for Setting up a Python Environment for Economic Research</a> &#187;</li> 
       </ul>
     </div>
 
     <div class="footer" role="contentinfo">
-        &copy; Copyright 2010-2014, Hans-Martin von Gaudecker.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.3.5.
+        &#169; Copyright 2010-2014, Hans-Martin von Gaudecker.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.5.6.
     </div>
 <div class="footer">This page uses <a href="http://analytics.google.com/">
 Google Analytics</a> to collect statistics. You can disable it by blocking
