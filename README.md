@@ -1,6 +1,4 @@
-Guide for Setting up a Python Environment for Economic Research
+This repo is obsolete and will be deleted in the near future
 ===============================================================
 
-A set of installation instructions to set up a Python environment for economic research.
-
-Her  are just the source files, see the [generated pages](http://hmgaudecker.github.io/econ-python-environment/) for the text.
+Please visit https://econ-project-templates.readthedocs.io/en/latest/getting_started.html for my thoughts on setting up your system.
